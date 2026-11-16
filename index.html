@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Simple Gridfinity Generator</title>
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body>
   <div class="app-shell">
@@ -19,6 +19,12 @@
         </div>
       </div>
       <div class="topbar-actions">
+        <button id="shareBtn" class="btn btn-outline" type="button" title="Copy a shareable link to this exact drawer layout">
+          <span>Share Link</span>
+        </button>
+        <button id="saveDrawerBtn" class="btn btn-outline" type="button" title="Save this drawer to a multi-drawer batch export">
+          <span>+ Save Drawer</span>
+        </button>
         <button id="download3mfBtn" class="btn btn-primary" type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
           <span>Download Bambu .3mf</span>
@@ -29,6 +35,20 @@
         </button>
       </div>
     </header>
+
+    <div id="batchBar" class="batch-bar hidden" aria-label="Saved drawers batch">
+      <div class="batch-bar-left">
+        <span class="batch-label label-with-tip">
+          <strong>Saved Drawers</strong>
+          <button type="button" class="tip" aria-label="About saved drawers batch" data-tip="Save multiple drawers (e.g. Top Drawer, Desk, Toolbox) and export every plate together into a single Bambu .3mf or ZIP. Click any chip to load/edit it.">?</button>
+        </span>
+        <div id="batchChips" class="batch-chips"></div>
+      </div>
+      <div class="batch-bar-actions">
+        <button id="exportBatch3mfBtn" class="btn btn-primary btn-sm" type="button">Export All Drawers .3mf</button>
+        <button id="exportBatchZipBtn" class="btn btn-outline btn-sm" type="button">All STLs (.zip)</button>
+      </div>
+    </div>
 
     <main class="workspace">
       <!-- Left Controls -->
@@ -68,10 +88,11 @@
           <div class="rim-fill-group">
             <span class="rim-fill-label label-with-tip">
               <span>Leftover Space</span>
-              <button type="button" class="tip" aria-label="About leftover space modes" data-tip="Grid Rim: Lighter open-cell border that keeps tiles snug while saving filament.&#10;Solid Rim: Fully filled flat border.&#10;None: Pure 42×42 mm Gridfinity tiles only.">?</button>
+              <button type="button" class="tip" aria-label="About leftover space modes" data-tip="Grid Rim: Lighter open-cell border that keeps tiles snug while saving filament.&#10;Half Grid: Adds half-size (21 mm) Gridfinity strip(s) when enough leftover width/depth fits.&#10;Solid Rim: Fully filled flat border.&#10;None: Pure Gridfinity tiles only.">?</button>
             </span>
-            <div class="segmented segmented-full" role="radiogroup" aria-label="Leftover Drawer Space">
+            <div class="segmented segmented-full segmented-4" role="radiogroup" aria-label="Leftover Drawer Space">
               <button type="button" class="seg-btn rim-btn active" data-rim="grid">Grid Rim</button>
+              <button type="button" class="seg-btn rim-btn" data-rim="half">Half Grid</button>
               <button type="button" class="seg-btn rim-btn" data-rim="solid">Solid Rim</button>
               <button type="button" class="seg-btn rim-btn" data-rim="none">None</button>
             </div>
@@ -97,6 +118,29 @@
               </div>
             </div>
           </div>
+
+          <details class="more-options">
+            <summary>Advanced Fit &amp; Seam Options</summary>
+            <div class="more-options-body">
+              <label class="field field-compact">
+                <span class="label-with-tip">
+                  <span>Outer Corner Radius (mm)</span>
+                  <button type="button" class="tip" aria-label="About corner radius" data-tip="Rounds the 4 outer corners of the assembled baseplate to clear curved drawer corners (e.g. IKEA MAXIMERA or kitchen drawers: 6–12 mm). Set 0 for sharp square corners.">?</button>
+                </span>
+                <input id="cornerRadiusInput" type="number" min="0" max="50" step="0.5" value="0" />
+              </label>
+
+              <label class="toggle-row toggle-compact">
+                <input id="interlockingCheck" type="checkbox" />
+                <div>
+                  <strong class="label-with-tip">
+                    <span>Interlocking Tile Tabs</span>
+                    <button type="button" class="tip" aria-label="About interlocking tabs" data-tip="Adds snap-fit dovetail tabs and 45° self-supporting blind slots along interior seams so tiles lock together in the drawer without glue.">?</button>
+                  </strong>
+                </div>
+              </label>
+            </div>
+          </details>
         </section>
 
         <!-- Printer Bed Preset -->
@@ -122,6 +166,29 @@
             <label class="field">
               <span>Bed Depth (mm)</span>
               <input id="bedDepth" type="number" min="45" max="1000" step="1" value="220" />
+            </label>
+          </div>
+
+          <div class="rim-fill-group printer-sub-group">
+            <div class="nozzle-row">
+              <span class="label-with-tip nozzle-label">
+                <span>Nozzle (.3mf)</span>
+                <button type="button" class="tip" aria-label="About nozzle preset" data-tip="Embeds the matching nozzle &amp; layer-height print profile in Bambu .3mf exports (0.20 mm layer for 0.4 mm nozzle, 0.32 mm for 0.8 mm fast nozzle).">?</button>
+              </span>
+              <div class="segmented" role="radiogroup" aria-label="Nozzle diameter">
+                <button type="button" class="seg-btn active" data-nozzle="0.4">0.4 mm</button>
+                <button type="button" class="seg-btn" data-nozzle="0.8">0.8 mm</button>
+              </div>
+            </div>
+
+            <label class="toggle-row toggle-compact pack-toggle">
+              <input id="packPlatesCheck" type="checkbox" checked />
+              <div>
+                <strong class="label-with-tip">
+                  <span>Pack multiple tiles per plate</span>
+                  <button type="button" class="tip" aria-label="About multi-tile plate packing" data-tip="Automatically arranges multiple tiles onto the same Bambu .3mf build plate whenever they fit together cleanly, reducing total plate swaps.">?</button>
+                </strong>
+              </div>
             </label>
           </div>
         </section>
@@ -185,6 +252,14 @@
             <strong id="kpiBed">—</strong>
             <small id="kpiMaxTile">—</small>
           </div>
+          <div class="kpi-card">
+            <span class="kpi-label label-with-tip">
+              <span>Est. Filament</span>
+              <button type="button" class="tip" aria-label="About filament estimate" data-tip="Estimated total PLA weight across all tiles (~1.24 g/cm³ solid model volume). Actual weight varies slightly with infill &amp; wall loops.">?</button>
+            </span>
+            <strong id="kpiFilament">—</strong>
+            <small id="kpiVolume">—</small>
+          </div>
         </div>
 
         <!-- Visual Preview -->
@@ -195,17 +270,37 @@
               <button type="button" class="tab-btn" data-view="3d-drawer">3D Drawer View</button>
               <button type="button" class="tab-btn" data-view="3d-bed">3D Print Bed</button>
             </div>
-            <div id="cameraControls" class="camera-controls hidden">
-              <button type="button" class="btn-mini" data-cam="iso">Iso</button>
-              <button type="button" class="btn-mini" data-cam="top">Top</button>
-              <button type="button" class="btn-mini" data-cam="front">Front</button>
-              <button type="button" class="btn-mini" data-cam="bottom">Bottom</button>
+            <div class="toolbar-right">
+              <button id="testBinsToggle" type="button" class="btn-mini">Test Bins</button>
+              <div id="cameraControls" class="camera-controls hidden">
+                <button type="button" class="btn-mini" data-cam="iso">Iso</button>
+                <button type="button" class="btn-mini" data-cam="top">Top</button>
+                <button type="button" class="btn-mini" data-cam="front">Front</button>
+                <button type="button" class="btn-mini" data-cam="bottom">Bottom</button>
+              </div>
             </div>
           </div>
 
           <div id="view2dWrap" class="view-stage">
+            <div id="binPalette" class="bin-palette hidden" aria-label="Virtual bin fit tester">
+              <span class="bin-palette-label label-with-tip">
+                <span>Place Bin:</span>
+                <button type="button" class="tip" aria-label="How to test bins" data-tip="Choose a Gridfinity bin size and click any grid cell to test how bins fit in your drawer. Click a placed rectangular bin to rotate it, or click again to remove it.">?</button>
+              </span>
+              <div class="bin-size-btns">
+                <button type="button" class="btn-mini bin-size-btn active" data-bin-size="1x1">1×1</button>
+                <button type="button" class="btn-mini bin-size-btn" data-bin-size="1x2">1×2</button>
+                <button type="button" class="btn-mini bin-size-btn" data-bin-size="1x3">1×3</button>
+                <button type="button" class="btn-mini bin-size-btn" data-bin-size="2x2">2×2</button>
+                <button type="button" class="btn-mini bin-size-btn" data-bin-size="2x3">2×3</button>
+                <button type="button" class="btn-mini bin-size-btn" data-bin-size="2x4">2×4</button>
+                <button type="button" class="btn-mini bin-size-btn" data-bin-size="3x4">3×4</button>
+              </div>
+              <button id="rotateBinBtn" type="button" class="btn-mini" title="Rotate selected bin size (R)">↻ Rotate</button>
+              <button id="clearBinsBtn" type="button" class="btn-mini">Clear</button>
+            </div>
             <svg id="layoutSvg" class="layout-svg" role="img" aria-label="2D Drawer Gridfinity Assembly Map"></svg>
-            <div class="stage-caption">
+            <div id="map2dCaption" class="stage-caption">
               Click any tile to inspect its model. Arrows show placement orientation in the drawer.
             </div>
           </div>
@@ -236,6 +331,6 @@
     </main>
   </div>
 
-  <script type="module" src="js/app.js?v=5"></script>
+  <script type="module" src="js/app.js?v=6"></script>
 </body>
 </html>

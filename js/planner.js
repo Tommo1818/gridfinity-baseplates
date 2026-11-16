@@ -1,130 +1,172 @@
 export const GRIDFINITY_PITCH = 42;
+export const HALF_PITCH = 21;
+export const TAB_PROTRUSION_MM = 1.05;
 
-/**
- * Solve an optimal 1D partition of `totalUnits` grid cells into printable segments
- * where segment i has cell count c_i >= 1 and physical length:
- *   c_i * 42 + (i === 0 ? padStart : 0) + (i === k - 1 ? padEnd : 0) <= maxSpanMm
- *
- * Optimizes for:
- *  1. Minimum number of segments
- *  2. Largest minimum cell count (avoids flimsy 1-wide strips when e.g. [3,3,3] beats [4,4,1])
- *  3. Most balanced segment sizes (smallest max - min)
- */
-export function solve1DPartition(totalUnits, padStart, padEnd, maxSpanMm) {
-  if (totalUnits <= 0) return [];
-
-  // Check if a single piece fits
-  if (totalUnits * GRIDFINITY_PITCH + padStart + padEnd <= maxSpanMm + 1e-6) {
-    return [totalUnits];
-  }
-
-  const maxMiddle = Math.floor((maxSpanMm + 1e-6) / GRIDFINITY_PITCH);
-  const maxFirst = Math.floor((maxSpanMm - padStart + 1e-6) / GRIDFINITY_PITCH);
-  const maxLast = Math.floor((maxSpanMm - padEnd + 1e-6) / GRIDFINITY_PITCH);
-
-  if (maxMiddle < 1 || maxFirst < 1 || maxLast < 1) {
-    return null;
-  }
-
-  // BFS/DP to find minimum piece count, then pick best balanced split of length k
-  // Since totalUnits is typically <= 40, enumerate valid k starting from lower bound
-  const minK = Math.max(2, Math.ceil((totalUnits * GRIDFINITY_PITCH + padStart + padEnd) / maxSpanMm));
-
-  for (let k = minK; k <= totalUnits; k++) {
-    // Upper bounds per position 0..k-1
-    const caps = new Array(k).fill(maxMiddle);
-    caps[0] = maxFirst;
-    caps[k - 1] = maxLast;
-
-    const totalCap = caps.reduce((a, b) => a + b, 0);
-    if (totalCap < totalUnits) continue;
-
-    // Distribute totalUnits evenly across k slots respecting caps[i]
-    // Water-filling / balanced distribution maximizes min(c_i) and minimizes max(c_i) - min(c_i)
-    const counts = new Array(k).fill(1);
-    let remaining = totalUnits - k;
-    if (remaining < 0) continue;
-
-    // Iteratively add 1 to slots that haven't hit cap, prioritizing smallest counts first
-    // and preserving left-right symmetry (palindromic splits) when possible.
-    while (remaining > 0) {
-      let minVal = Infinity;
-      const eligible = [];
-      for (let i = 0; i < k; i++) {
-        if (counts[i] < caps[i]) {
-          if (counts[i] < minVal) {
-            minVal = counts[i];
-            eligible.length = 0;
-            eligible.push(i);
-          } else if (counts[i] === minVal) {
-            eligible.push(i);
-          }
-        }
-      }
-      if (eligible.length === 0) break;
-
-      if (remaining >= eligible.length) {
-        for (const i of eligible) {
-          counts[i]++;
-          remaining--;
-        }
-      } else {
-        const eligibleSet = new Set(eligible);
-        // If odd remainder and center slot is eligible, give 1 to center first
-        if (remaining % 2 === 1 && k % 2 === 1) {
-          const mid = (k - 1) / 2;
-          if (eligibleSet.has(mid)) {
-            counts[mid]++;
-            remaining--;
-            eligibleSet.delete(mid);
-          }
-        }
-        // Assign remaining in symmetric outer-in pairs
-        for (let i = 0; i < Math.floor(k / 2) && remaining >= 2; i++) {
-          const j = k - 1 - i;
-          if (eligibleSet.has(i) && eligibleSet.has(j)) {
-            counts[i]++;
-            counts[j]++;
-            remaining -= 2;
-            eligibleSet.delete(i);
-            eligibleSet.delete(j);
-          }
-        }
-        // Any remaining slots sequentially
-        for (const i of eligible) {
-          if (remaining === 0) break;
-          if (eligibleSet.has(i)) {
-            counts[i]++;
-            remaining--;
-          }
-        }
-      }
-    }
-
-    if (remaining === 0) {
-      return counts;
-    }
-  }
-
-  return null;
+function sumArr(arr) {
+  let s = 0;
+  for (let i = 0; i < arr.length; i++) s += arr[i];
+  return s;
 }
 
 /**
- * Rotate a tile descriptor (nx, ny, padL, padR, padB, padT) by `turns` * 90 deg CCW.
+ * Exact DP partition of `cellSizes` (each 42 or 21 mm) into the fewest contiguous segments
+ * such that segment i has physical span:
+ *   sum(seg) + (i === 0 ? padStart : 0) + (i === k - 1 ? padEnd : tabOverhang) <= maxSpanMm
+ *
+ * Optimizes for:
+ *  1. Minimum piece count (k)
+ *  2. Smallest imbalance (maxCells - minCells) and avoiding 1-cell strips
+ *  3. Palindromic symmetry when pads & cell sizes are symmetric
+ */
+export function solveArrayPartition(cellSizes, padStart, padEnd, maxSpanMm, tabOverhang = 0) {
+  const n = cellSizes.length;
+  if (n <= 0) return [];
+
+  const totalGrid = sumArr(cellSizes);
+  if (totalGrid + padStart + padEnd <= maxSpanMm + 1e-6) {
+    return [cellSizes.slice()];
+  }
+
+  // Exact DP over prefix 0..n
+  const dp = new Array(n + 1).fill(null);
+  dp[0] = { count: 0, minCells: Infinity, maxCells: 0, segs: [] };
+
+  for (let i = 1; i <= n; i++) {
+    let best = null;
+    for (let j = 0; j < i; j++) {
+      if (!dp[j]) continue;
+      const seg = cellSizes.slice(j, i);
+      const segLen = sumArr(seg);
+      const leftExtra = j === 0 ? padStart : 0;
+      const rightExtra = i === n ? padEnd : tabOverhang;
+      if (segLen + leftExtra + rightExtra > maxSpanMm + 1e-6) continue;
+
+      const count = dp[j].count + 1;
+      const minCells = Math.min(dp[j].minCells, seg.length);
+      const maxCells = Math.max(dp[j].maxCells, seg.length);
+      const spread = maxCells - minCells;
+
+      // Also track sum of squared cell counts to favor balanced splits (e.g. [3,3,3] over [4,4,1])
+      const prevSegs = dp[j].segs;
+      const cand = {
+        count,
+        minCells,
+        maxCells,
+        spread,
+        sqSum: prevSegs.reduce((a, s) => a + s.length * s.length, 0) + seg.length * seg.length,
+        segs: [...prevSegs, seg],
+      };
+
+      if (
+        !best ||
+        cand.count < best.count ||
+        (cand.count === best.count && cand.spread < best.spread) ||
+        (cand.count === best.count && cand.spread === best.spread && cand.sqSum < best.sqSum)
+      ) {
+        best = cand;
+      }
+    }
+    dp[i] = best;
+  }
+
+  if (!dp[n]) return null;
+
+  const segs = dp[n].segs;
+  // If pads and cell sizes are uniform (all 42s) and padStart === padEnd,
+  // arrange counts palindromically (e.g. [4, 4, 3] -> [4, 3, 4]) when valid
+  const allEqual = cellSizes.every((v) => v === cellSizes[0]);
+  if (allEqual && Math.abs(padStart - padEnd) < 1e-4 && segs.length >= 3) {
+    const counts = segs.map((s) => s.length).sort((a, b) => b - a);
+    const pal = new Array(counts.length);
+    let lo = 0;
+    let hi = counts.length - 1;
+    let idx = 0;
+    while (lo <= hi) {
+      if (lo === hi) {
+        pal[lo] = counts[idx++];
+      } else {
+        pal[lo] = counts[idx++];
+        pal[hi] = counts[idx++];
+      }
+      lo++;
+      hi--;
+    }
+    const maxFirst = Math.floor((maxSpanMm - padStart - (segs.length > 1 ? tabOverhang : 0) + 1e-6) / cellSizes[0]);
+    const maxLast = Math.floor((maxSpanMm - padEnd + 1e-6) / cellSizes[0]);
+    if (pal[0] <= maxFirst && pal[pal.length - 1] <= maxLast) {
+      return pal.map((c) => new Array(c).fill(cellSizes[0]));
+    }
+  }
+
+  return segs;
+}
+
+/**
+ * Legacy helper for numeric uniform splits.
+ */
+export function solve1DPartition(totalUnits, padStart, padEnd, maxSpanMm) {
+  const res = solveArrayPartition(new Array(totalUnits).fill(GRIDFINITY_PITCH), padStart, padEnd, maxSpanMm);
+  return res ? res.map((s) => s.length) : null;
+}
+
+/**
+ * Rotate a tile descriptor by `turns` * 90 deg CCW.
  */
 export function rotateTileSpec(spec, turns) {
   const t = ((turns % 4) + 4) % 4;
-  let { nx, ny, padL, padR, padB, padT } = spec;
+  let {
+    colWidths,
+    rowDepths,
+    padL,
+    padR,
+    padB,
+    padT,
+    rBL = 0,
+    rBR = 0,
+    rTR = 0,
+    rTL = 0,
+    connL = 0,
+    connR = 0,
+    connB = 0,
+    connT = 0,
+  } = spec;
+
   for (let i = 0; i < t; i++) {
     // 90 deg CCW: (x, y) -> (-y, x)
-    // Old Bottom -> New Right? Let's trace:
-    // Old Left (x=0) -> New Bottom (y=0)
-    // Old Bottom (y=0) -> New Right (x=max)
-    // Old Right (x=max) -> New Top (y=max)
-    // Old Top (y=max) -> New Left (x=0)
-    [nx, ny, padL, padR, padB, padT] = [ny, nx, padT, padB, padL, padR];
+    // New colWidths = reversed old rowDepths; New rowDepths = old colWidths
+    const nextCols = [...rowDepths].reverse();
+    const nextRows = [...colWidths];
+    colWidths = nextCols;
+    rowDepths = nextRows;
+
+    [padL, padR, padB, padT] = [padT, padB, padL, padR];
+    [connL, connR, connB, connT] = [connT, connB, connL, connR];
+    // Corners CCW: BL -> BR -> TR -> TL -> BL
+    // Old BR -> New BL? Wait: (x, y) -> (-y, x):
+    // Old BL (x=0,y=0) -> (0,0)? After shifting to positive box:
+    // Old Right (x=max) -> New Top (y=max); Old Bottom (y=0) -> New Right (x=max)
+    // So Old BR -> New TR; Old TR -> New TL; Old TL -> New BL; Old BL -> New BR
+    [rBL, rBR, rTR, rTL] = [rTL, rBL, rBR, rTR];
   }
-  return { nx, ny, padL, padR, padB, padT };
+
+  return {
+    nx: colWidths.length,
+    ny: rowDepths.length,
+    colWidths,
+    rowDepths,
+    padL,
+    padR,
+    padB,
+    padT,
+    rBL,
+    rBR,
+    rTR,
+    rTL,
+    connL,
+    connR,
+    connB,
+    connT,
+  };
 }
 
 function roundRim(v) {
@@ -132,37 +174,75 @@ function roundRim(v) {
 }
 
 function tileKey(spec) {
-  return `${spec.nx}x${spec.ny}_${roundRim(spec.padL)}_${roundRim(spec.padR)}_${roundRim(spec.padB)}_${roundRim(spec.padT)}`;
+  const cw = spec.colWidths.join(',');
+  const rd = spec.rowDepths.join(',');
+  return [
+    cw,
+    rd,
+    roundRim(spec.padL),
+    roundRim(spec.padR),
+    roundRim(spec.padB),
+    roundRim(spec.padT),
+    roundRim(spec.rBL || 0),
+    roundRim(spec.rBR || 0),
+    roundRim(spec.rTR || 0),
+    roundRim(spec.rTL || 0),
+    spec.connL || 0,
+    spec.connR || 0,
+    spec.connB || 0,
+    spec.connT || 0,
+  ].join('|');
 }
 
-/**
- * Canonicalize a tile up to 90-degree rotations in XY, choosing an orientation
- * that fits on the printer bed (bedX x bedY).
- */
+function tilePhysicalSize(spec) {
+  const gridW = sumArr(spec.colWidths);
+  const gridD = sumArr(spec.rowDepths);
+  const w =
+    gridW +
+    spec.padL +
+    spec.padR +
+    (spec.connL === 'tab' ? TAB_PROTRUSION_MM : 0) +
+    (spec.connR === 'tab' ? TAB_PROTRUSION_MM : 0);
+  const d =
+    gridD +
+    spec.padB +
+    spec.padT +
+    (spec.connB === 'tab' ? TAB_PROTRUSION_MM : 0) +
+    (spec.connT === 'tab' ? TAB_PROTRUSION_MM : 0);
+  return { w: roundRim(w), d: roundRim(d), gridW, gridD };
+}
+
 function canonicalizeForBed(spec, bedX, bedY) {
   const candidates = [];
   for (let turns = 0; turns < 4; turns++) {
     const rot = rotateTileSpec(spec, turns);
-    const w = rot.nx * GRIDFINITY_PITCH + rot.padL + rot.padR;
-    const d = rot.ny * GRIDFINITY_PITCH + rot.padB + rot.padT;
+    const { w, d } = tilePhysicalSize(rot);
     const fitsBed = w <= bedX + 1e-6 && d <= bedY + 1e-6;
     candidates.push({ rot, turns, w, d, fitsBed, key: tileKey(rot) });
   }
-  // Prefer orientations that fit the bed, then lexicographically smallest key
   const fitting = candidates.filter((c) => c.fitsBed);
   const pool = fitting.length > 0 ? fitting : candidates;
   pool.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   const best = pool[0];
-  // `placeRotationDeg` is how many degrees CCW to rotate the canonical STL
-  // to get back to the drawer's `spec` orientation: (360 - best.turns * 90) % 360
   const placeRotationCCW = (4 - best.turns) % 4;
   return {
     canonical: best.rot,
     key: best.key,
-    printWidthMm: roundRim(best.w),
-    printDepthMm: roundRim(best.d),
+    printWidthMm: best.w,
+    printDepthMm: best.d,
     placeRotationCCW,
   };
+}
+
+function clampOuterCornerRadius(requestedR, padX, padY) {
+  if (requestedR <= 0) return 0;
+  if (padX > 0 && padY > 0) {
+    return roundRim(Math.min(requestedR, padX, padY));
+  }
+  if (padX === 0 && padY === 0) {
+    return roundRim(Math.min(requestedR, 4));
+  }
+  return 0;
 }
 
 /**
@@ -174,12 +254,14 @@ export function planDrawerLayout({
   bedWidthMm,
   bedDepthMm,
   clearanceMm = 1,
-  marginFill = 'grid', // 'grid' | 'solid' | 'none'
+  marginFill = 'grid', // 'grid' | 'solid' | 'half' | 'none'
   fillMargins, // legacy boolean fallback
   alignX = 'center', // 'left' | 'center' | 'right'
   alignY = 'center', // 'back' | 'center' | 'front'
   marginAlignment, // legacy fallback
   floorThicknessMm = 0,
+  cornerRadiusMm = 0,
+  interlocking = false,
 }) {
   const effectiveMarginFill =
     typeof fillMargins === 'boolean' ? (fillMargins ? 'solid' : 'none') : marginFill;
@@ -201,17 +283,37 @@ export function planDrawerLayout({
     };
   }
 
-  const gridWidthMm = cols * GRIDFINITY_PITCH;
-  const gridDepthMm = rows * GRIDFINITY_PITCH;
-  const leftoverX = Math.max(0, effW - gridWidthMm);
-  const leftoverY = Math.max(0, effD - gridDepthMm);
+  let remX = Math.max(0, effW - cols * GRIDFINITY_PITCH);
+  let remY = Math.max(0, effD - rows * GRIDFINITY_PITCH);
+
+  const hasHalfX = effectiveMarginFill === 'half' && remX >= HALF_PITCH - 1e-6;
+  const hasHalfY = effectiveMarginFill === 'half' && remY >= HALF_PITCH - 1e-6;
+
+  if (hasHalfX) remX = Math.max(0, remX - HALF_PITCH);
+  if (hasHalfY) remY = Math.max(0, remY - HALF_PITCH);
+
+  const allColWidths = new Array(cols).fill(GRIDFINITY_PITCH);
+  if (hasHalfX) {
+    if (effAlignX === 'right') allColWidths.unshift(HALF_PITCH);
+    else allColWidths.push(HALF_PITCH);
+  }
+
+  const allRowDepths = new Array(rows).fill(GRIDFINITY_PITCH);
+  if (hasHalfY) {
+    if (effAlignY === 'back') allRowDepths.unshift(HALF_PITCH);
+    else allRowDepths.push(HALF_PITCH);
+  }
+
+  const gridWidthMm = roundRim(sumArr(allColWidths));
+  const gridDepthMm = roundRim(sumArr(allRowDepths));
+  const leftoverX = roundRim(remX);
+  const leftoverY = roundRim(remY);
 
   let padL = 0;
   let padR = 0;
   let padB = 0;
   let padT = 0;
 
-  // Position of the assembled tiles' bottom-left corner inside the drawer interior [0..drawerWidthMm, 0..drawerDepthMm]
   const halfClear = clearanceMm / 2;
   let assemblyX = halfClear;
   let assemblyY = halfClear;
@@ -219,41 +321,38 @@ export function planDrawerLayout({
   if (hasMargins) {
     if (effAlignX === 'left') {
       padL = 0;
-      padR = roundRim(leftoverX);
+      padR = leftoverX;
     } else if (effAlignX === 'right') {
-      padL = roundRim(leftoverX);
+      padL = leftoverX;
       padR = 0;
     } else {
       padL = roundRim(leftoverX / 2);
       padR = roundRim(leftoverX - padL);
     }
 
-    // Y=0 is Front of drawer (bottom of 2D/3D view), Y=max is Back of drawer (top of 2D/3D view)
     if (effAlignY === 'front') {
       padB = 0;
-      padT = roundRim(leftoverY);
+      padT = leftoverY;
     } else if (effAlignY === 'back') {
-      padB = roundRim(leftoverY);
+      padB = leftoverY;
       padT = 0;
     } else {
       padB = roundRim(leftoverY / 2);
       padT = roundRim(leftoverY - padB);
     }
   } else {
-    // No border rim: shift the pure Gridfinity tiles inside the drawer box according to alignX / alignY
-    if (effAlignX === 'right') {
-      assemblyX = roundRim(halfClear + leftoverX);
-    } else if (effAlignX === 'center') {
-      assemblyX = roundRim(halfClear + leftoverX / 2);
-    }
-    if (effAlignY === 'back') {
-      assemblyY = roundRim(halfClear + leftoverY);
-    } else if (effAlignY === 'center') {
-      assemblyY = roundRim(halfClear + leftoverY / 2);
-    }
+    if (effAlignX === 'right') assemblyX = roundRim(halfClear + leftoverX);
+    else if (effAlignX === 'center') assemblyX = roundRim(halfClear + leftoverX / 2);
+    if (effAlignY === 'back') assemblyY = roundRim(halfClear + leftoverY);
+    else if (effAlignY === 'center') assemblyY = roundRim(halfClear + leftoverY / 2);
   }
 
-  // Try both bed axis assignments: (maxX=bedWidth, maxY=bedDepth) and (maxX=bedDepth, maxY=bedWidth)
+  const outerRBL = clampOuterCornerRadius(cornerRadiusMm, padL, padB);
+  const outerRBR = clampOuterCornerRadius(cornerRadiusMm, padR, padB);
+  const outerRTR = clampOuterCornerRadius(cornerRadiusMm, padR, padT);
+  const outerRTL = clampOuterCornerRadius(cornerRadiusMm, padL, padT);
+
+  const tabOverhang = interlocking ? TAB_PROTRUSION_MM : 0;
   const bedOrientations = [
     [bedWidthMm, bedDepthMm],
     ...(Math.abs(bedWidthMm - bedDepthMm) > 1e-6 ? [[bedDepthMm, bedWidthMm]] : []),
@@ -262,8 +361,8 @@ export function planDrawerLayout({
   let bestPlan = null;
 
   for (const [maxSpanX, maxSpanY] of bedOrientations) {
-    const colSplits = solve1DPartition(cols, padL, padR, maxSpanX);
-    const rowSplits = solve1DPartition(rows, padB, padT, maxSpanY);
+    const colSplits = solveArrayPartition(allColWidths, padL, padR, maxSpanX, tabOverhang);
+    const rowSplits = solveArrayPartition(allRowDepths, padB, padT, maxSpanY, tabOverhang);
     if (!colSplits || !rowSplits) continue;
 
     const tiles = [];
@@ -272,28 +371,45 @@ export function planDrawerLayout({
     let offsetY = 0;
     let gridY = 0;
     for (let r = 0; r < rowSplits.length; r++) {
-      const ny = rowSplits[r];
+      const rowDepths = rowSplits[r];
       const tPadB = r === 0 ? padB : 0;
       const tPadT = r === rowSplits.length - 1 ? padT : 0;
+      const connB = interlocking && r > 0 ? 'slot' : 0;
+      const connT = interlocking && r < rowSplits.length - 1 ? 'tab' : 0;
+      const tileGridD = sumArr(rowDepths);
       let offsetX = 0;
       let gridX = 0;
 
       for (let c = 0; c < colSplits.length; c++) {
-        const nx = colSplits[c];
+        const colWidths = colSplits[c];
         const tPadL = c === 0 ? padL : 0;
         const tPadR = c === colSplits.length - 1 ? padR : 0;
+        const connL = interlocking && c > 0 ? 'slot' : 0;
+        const connR = interlocking && c < colSplits.length - 1 ? 'tab' : 0;
+        const tileGridW = sumArr(colWidths);
 
         const spec = {
-          nx,
-          ny,
+          nx: colWidths.length,
+          ny: rowDepths.length,
+          colWidths,
+          rowDepths,
           padL: tPadL,
           padR: tPadR,
           padB: tPadB,
           padT: tPadT,
+          rBL: r === 0 && c === 0 ? outerRBL : 0,
+          rBR: r === 0 && c === colSplits.length - 1 ? outerRBR : 0,
+          rTR: r === rowSplits.length - 1 && c === colSplits.length - 1 ? outerRTR : 0,
+          rTL: r === rowSplits.length - 1 && c === 0 ? outerRTL : 0,
+          connL,
+          connR,
+          connB,
+          connT,
         };
 
-        const widthMm = roundRim(nx * GRIDFINITY_PITCH + tPadL + tPadR);
-        const depthMm = roundRim(ny * GRIDFINITY_PITCH + tPadB + tPadT);
+        // Nominal footprint in drawer (without tab overhang which tucks into neighbor slot)
+        const widthMm = roundRim(tileGridW + tPadL + tPadR);
+        const depthMm = roundRim(tileGridD + tPadB + tPadT);
 
         const canon = canonicalizeForBed(spec, bedWidthMm, bedDepthMm);
 
@@ -330,15 +446,18 @@ export function planDrawerLayout({
         });
 
         offsetX += widthMm;
-        gridX += nx;
+        gridX += colWidths.length;
       }
-      offsetY += ny * GRIDFINITY_PITCH + tPadB + tPadT;
-      gridY += ny;
+      offsetY += tileGridD + tPadB + tPadT;
+      gridY += rowDepths.length;
     }
 
     const totalTiles = tiles.length;
     const uniqueCount = modelMap.size;
-    const minDim = Math.min(...colSplits, ...rowSplits);
+    const minDim = Math.min(
+      ...colSplits.map((s) => s.length),
+      ...rowSplits.map((s) => s.length)
+    );
     const score = [totalTiles, uniqueCount, -minDim];
 
     if (
@@ -349,8 +468,8 @@ export function planDrawerLayout({
     ) {
       bestPlan = {
         score,
-        colSplits,
-        rowSplits,
+        colSplits: colSplits.map((s) => s.length),
+        rowSplits: rowSplits.map((s) => s.length),
         tiles,
         modelMap,
       };
@@ -360,18 +479,17 @@ export function planDrawerLayout({
   if (!bestPlan) {
     return {
       ok: false,
-      error: `A single Gridfinity cell with border rim (${roundRim(GRIDFINITY_PITCH + Math.max(padL, padR))} × ${roundRim(GRIDFINITY_PITCH + Math.max(padB, padT))} mm) exceeds the selected printer bed (${bedWidthMm} × ${bedDepthMm} mm). Increase bed size or turn off border rim.`,
+      error: `A single Gridfinity cell with border rim (${roundRim(GRIDFINITY_PITCH + Math.max(padL, padR) + tabOverhang)} × ${roundRim(GRIDFINITY_PITCH + Math.max(padB, padT) + tabOverhang)} mm) exceeds the selected printer bed (${bedWidthMm} × ${bedDepthMm} mm). Increase bed size or turn off border rim / connectors.`,
       cols,
       rows,
     };
   }
 
-  // Assign friendly model labels A, B, C... sorted by count desc then area desc
   const models = Array.from(bestPlan.modelMap.values());
   models.sort((a, b) => {
     if (b.count !== a.count) return b.count - a.count;
-    const areaA = a.spec.nx * a.spec.ny;
-    const areaB = b.spec.nx * b.spec.ny;
+    const areaA = sumArr(a.spec.colWidths) * sumArr(a.spec.rowDepths);
+    const areaB = sumArr(b.spec.colWidths) * sumArr(b.spec.rowDepths);
     return areaB - areaA;
   });
 
@@ -416,16 +534,22 @@ export function planDrawerLayout({
     alignY: effAlignY,
     assemblyX,
     assemblyY,
+    cornerRadiusMm,
+    interlocking,
+    hasHalfX,
+    hasHalfY,
+    allColWidths,
+    allRowDepths,
     floorThicknessMm,
     cols,
     rows,
-    totalCells: cols * rows,
+    totalCells: allColWidths.length * allRowDepths.length,
     gridWidthMm,
     gridDepthMm,
     totalWidthMm,
     totalDepthMm,
-    leftoverX: roundRim(leftoverX),
-    leftoverY: roundRim(leftoverY),
+    leftoverX,
+    leftoverY,
     padL,
     padR,
     padB,
