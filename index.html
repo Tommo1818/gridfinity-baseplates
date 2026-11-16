@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gridfinity Drawer Grid Generator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <div>
+          <h1>Gridfinity Drawer Generator</h1>
+          <p>Split any drawer into printable Gridfinity baseplate tiles that fit your 3D printer bed.</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="downloadAllBtn" class="btn btn-primary" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Download All (.zip)</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <!-- Left Controls -->
+      <aside class="controls-col">
+        <!-- Drawer Dimensions -->
+        <section class="card">
+          <div class="card-header">
+            <h2>1. Drawer Interior</h2>
+            <div class="segmented" role="group" aria-label="Units">
+              <button type="button" class="seg-btn active" data-unit="mm">mm</button>
+              <button type="button" class="seg-btn" data-unit="cm">cm</button>
+              <button type="button" class="seg-btn" data-unit="in">in</button>
+            </div>
+          </div>
+
+          <div class="field-grid-2">
+            <label class="field">
+              <span>Width (<span class="unit-label">mm</span>)</span>
+              <input id="drawerWidth" type="number" min="1" step="any" value="400" />
+            </label>
+            <label class="field">
+              <span>Depth (<span class="unit-label">mm</span>)</span>
+              <input id="drawerDepth" type="number" min="1" step="any" value="350" />
+            </label>
+          </div>
+
+          <div class="field-row-inline">
+            <label class="field field-compact">
+              <span>Fit Clearance (<span class="unit-label">mm</span>)</span>
+              <input id="clearanceInput" type="number" min="0" step="any" value="1" />
+            </label>
+            <span class="hint-inline">Total gap subtracted so tiles slide in smoothly.</span>
+          </div>
+
+          <label class="toggle-row">
+            <input id="fillMargins" type="checkbox" checked />
+            <span>
+              <strong>Fill leftover space with border rim</strong>
+              <small>Centers the grid and pads outer tiles to fit your drawer snugly.</small>
+            </span>
+          </label>
+        </section>
+
+        <!-- Printer Bed Preset -->
+        <section class="card">
+          <div class="card-header">
+            <h2>2. 3D Printer Bed</h2>
+            <span id="bedBadge" class="badge">180 × 180 mm</span>
+          </div>
+
+          <label class="field">
+            <span>Printer Preset</span>
+            <select id="printerPreset"></select>
+          </label>
+          <p id="printerNote" class="hint-text"></p>
+
+          <div id="customBedRow" class="field-grid-2 hidden">
+            <label class="field">
+              <span>Bed Width (mm)</span>
+              <input id="bedWidth" type="number" min="45" max="1000" step="1" value="220" />
+            </label>
+            <label class="field">
+              <span>Bed Depth (mm)</span>
+              <input id="bedDepth" type="number" min="45" max="1000" step="1" value="220" />
+            </label>
+          </div>
+        </section>
+
+        <!-- Baseplate Style -->
+        <section class="card">
+          <div class="card-header">
+            <h2>3. Baseplate Style</h2>
+          </div>
+
+          <div class="style-options" role="radiogroup" aria-label="Baseplate Style">
+            <label class="style-option">
+              <input type="radio" name="meshStyle" value="fast" checked />
+              <div>
+                <strong>Fast Lightweight <span class="pill-rec">Recommended</span></strong>
+                <small>4.25 mm tall · flat bottom, hollow divider channels, least filament &amp; fastest print.</small>
+              </div>
+            </label>
+            <label class="style-option">
+              <input type="radio" name="meshStyle" value="solid" />
+              <div>
+                <strong>Standard Open Frame</strong>
+                <small>4.65 mm tall · classic solid-wall Gridfinity profile with bottom entry chamfer.</small>
+              </div>
+            </label>
+            <label class="style-option">
+              <input type="radio" name="meshStyle" value="solid-floor" />
+              <div>
+                <strong>Standard Solid Floor</strong>
+                <small>5.85 mm tall · adds a 1.2 mm solid bottom sheet for maximum rigidity.</small>
+              </div>
+            </label>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Right Preview & Outputs -->
+      <section class="results-col">
+        <!-- Error Banner -->
+        <div id="errorBanner" class="error-banner hidden" role="alert"></div>
+
+        <!-- KPI Strip -->
+        <div id="kpiStrip" class="kpi-strip">
+          <div class="kpi-card">
+            <span class="kpi-label">Grid Size</span>
+            <strong id="kpiGrid">—</strong>
+            <small id="kpiCells">—</small>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Tiles to Print</span>
+            <strong id="kpiTiles">—</strong>
+            <small id="kpiUnique">—</small>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Assembled Footprint</span>
+            <strong id="kpiSize">—</strong>
+            <small id="kpiRims">—</small>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Printer Bed</span>
+            <strong id="kpiBed">—</strong>
+            <small id="kpiMaxTile">—</small>
+          </div>
+        </div>
+
+        <!-- Visual Preview -->
+        <div class="card preview-card">
+          <div class="preview-toolbar">
+            <div class="view-tabs" role="tablist">
+              <button type="button" class="tab-btn active" data-view="2d">2D Assembly Map</button>
+              <button type="button" class="tab-btn" data-view="3d-drawer">3D Drawer View</button>
+              <button type="button" class="tab-btn" data-view="3d-bed">3D Print Bed</button>
+            </div>
+            <div id="cameraControls" class="camera-controls hidden">
+              <button type="button" class="btn-mini" data-cam="iso">Iso</button>
+              <button type="button" class="btn-mini" data-cam="top">Top</button>
+              <button type="button" class="btn-mini" data-cam="front">Front</button>
+            </div>
+          </div>
+
+          <div id="view2dWrap" class="view-stage">
+            <svg id="layoutSvg" class="layout-svg" role="img" aria-label="2D Drawer Gridfinity Assembly Map"></svg>
+            <div class="stage-caption">
+              Click any tile to inspect its model. Arrows show placement orientation in the drawer.
+            </div>
+          </div>
+
+          <div id="view3dWrap" class="view-stage hidden">
+            <canvas id="glCanvas" class="gl-canvas"></canvas>
+            <div id="glCaption" class="stage-caption">
+              Drag to orbit · Right-drag to pan · Scroll to zoom
+            </div>
+          </div>
+        </div>
+
+        <!-- Models Download List -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2>Printable 3D Models (.STL)</h2>
+              <p class="subhead">Identical tiles are grouped so you can print multiples of one STL.</p>
+            </div>
+            <button id="downloadAllSecondary" class="btn btn-outline" type="button">Download All (.zip)</button>
+          </div>
+          <div id="modelsList" class="models-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
