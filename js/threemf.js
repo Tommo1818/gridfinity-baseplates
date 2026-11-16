@@ -123,7 +123,7 @@ export function createBambu3mfBlob(plan, modelMeshes, presetId = 'a1-mini') {
 
       const plateName =
         model.count > 1
-          ? `Model ${model.label} (${copy + 1}/${model.count}) ${model.spec.nx}x${model.spec.ny}`
+          ? `Model ${model.label} (${copy + 1} of ${model.count}) ${model.spec.nx}x${model.spec.ny}`
           : `Model ${model.label} ${model.spec.nx}x${model.spec.ny}`;
 
       resourceObjects.push(
