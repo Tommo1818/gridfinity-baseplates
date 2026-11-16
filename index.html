@@ -59,13 +59,15 @@
             <span class="hint-inline">Total gap subtracted so tiles slide in smoothly.</span>
           </div>
 
-          <label class="toggle-row">
-            <input id="fillMargins" type="checkbox" checked />
-            <span>
-              <strong>Fill leftover space with border rim</strong>
-              <small>Centers the grid and pads outer tiles to fit your drawer snugly.</small>
-            </span>
-          </label>
+          <div class="rim-fill-group">
+            <span class="rim-fill-label">Leftover Drawer Space</span>
+            <div class="segmented segmented-full" role="radiogroup" aria-label="Leftover Drawer Space">
+              <button type="button" class="seg-btn rim-btn active" data-rim="grid">Grid Rim</button>
+              <button type="button" class="seg-btn rim-btn" data-rim="solid">Solid Rim</button>
+              <button type="button" class="seg-btn rim-btn" data-rim="none">None</button>
+            </div>
+            <p id="rimHint" class="hint-text">Fills extra space with a smaller open-cell grid border so tiles stay snug while saving filament.</p>
+          </div>
         </section>
 
         <!-- Printer Bed Preset -->

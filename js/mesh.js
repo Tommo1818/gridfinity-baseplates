@@ -93,6 +93,11 @@ class TriangleCollector {
   }
 }
 
+export const RIM_OUTER_WALL = 1.6;
+export const RIM_INNER_COLLAR = 1.2;
+export const RIM_RIB_THICKNESS = 1.6;
+export const MIN_GRID_RIM_PAD = RIM_OUTER_WALL + RIM_INNER_COLLAR + 2.0; // 4.8 mm
+
 function buildGridBreaks(count) {
   const breaks = [0];
   for (let i = 0; i < count; i++) {
@@ -102,112 +107,275 @@ function buildGridBreaks(count) {
   return breaks;
 }
 
-function addBorderRimsAndWalls(tc, { nx, ny, padL, padR, padB, padT, zTop, solidBottom, xsGrid, ysGrid }) {
+function buildRimCellSegments(count) {
+  const segs = [];
+  for (let i = 0; i < count; i++) {
+    const a = i * GRIDFINITY_PITCH;
+    const b = a + GRIDFINITY_PITCH;
+    const ribA = a + (i === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2);
+    const ribB = b - (i === count - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2);
+    segs.push({ a, ribA, ribB, b, cellB: a + 4, cellC: a + 38 });
+  }
+  return segs;
+}
+
+function emitTopAndOptionalBottomQuad(tc, x0, x1, y0, y1, zTop, solidBottom) {
+  tc.quad([x0, y0, zTop], [x1, y0, zTop], [x1, y1, zTop], [x0, y1, zTop]);
+  if (!solidBottom) {
+    tc.quad([x0, y1, 0], [x1, y1, 0], [x1, y0, 0], [x0, y0, 0]);
+  }
+}
+
+function emitCutoutPocket(tc, x0, x1, y0, y1, zBot, zTop, solidBottom) {
+  // 4 vertical inner pocket walls (normals pointing inward into cutout)
+  // Left wall (x = x0, +X)
+  tc.quad([x0, y0, zBot], [x0, y1, zBot], [x0, y1, zTop], [x0, y0, zTop]);
+  // Right wall (x = x1, -X)
+  tc.quad([x1, y1, zBot], [x1, y0, zBot], [x1, y0, zTop], [x1, y1, zTop]);
+  // Bottom wall (y = y0, +Y)
+  tc.quad([x1, y0, zBot], [x0, y0, zBot], [x0, y0, zTop], [x1, y0, zTop]);
+  // Top wall (y = y1, -Y)
+  tc.quad([x0, y1, zBot], [x1, y1, zBot], [x1, y1, zTop], [x0, y1, zTop]);
+
+  if (solidBottom) {
+    // Pocket floor at z = zBot (+Z normal)
+    tc.quad([x0, y0, zBot], [x1, y0, zBot], [x1, y1, zBot], [x0, y1, zBot]);
+  }
+}
+
+function addBorderRimsAndWalls(
+  tc,
+  { nx, ny, padL, padR, padB, padT, zTop, floorH = 0, rimStyle = 'grid', xsGrid, ysGrid }
+) {
   const gridW = nx * GRIDFINITY_PITCH;
   const gridD = ny * GRIDFINITY_PITCH;
   const xMin = -padL;
   const xMax = gridW + padR;
   const yMin = -padB;
   const yMax = gridD + padT;
+  const solidBottom = floorH > 0;
+  const zCutBot = solidBottom ? floorH : 0;
 
-  // Left rim: [-padL, 0] x [0, gridD]
+  const cutL = rimStyle === 'grid' && padL >= MIN_GRID_RIM_PAD;
+  const cutR = rimStyle === 'grid' && padR >= MIN_GRID_RIM_PAD;
+  const cutB = rimStyle === 'grid' && padB >= MIN_GRID_RIM_PAD;
+  const cutT = rimStyle === 'grid' && padT >= MIN_GRID_RIM_PAD;
+
+  const ySegs = buildRimCellSegments(ny);
+  const xSegs = buildRimCellSegments(nx);
+
+  // Left rim: [xMin, 0] x [0, gridD]
   if (padL > 0) {
-    for (let j = 0; j < ysGrid.length - 1; j++) {
-      const ya = ysGrid[j];
-      const yb = ysGrid[j + 1];
-      tc.quad([xMin, ya, zTop], [0, ya, zTop], [0, yb, zTop], [xMin, yb, zTop]);
-      if (!solidBottom) {
-        tc.quad([xMin, yb, 0], [0, yb, 0], [0, ya, 0], [xMin, ya, 0]);
+    if (!cutL) {
+      for (let j = 0; j < ysGrid.length - 1; j++) {
+        emitTopAndOptionalBottomQuad(tc, xMin, 0, ysGrid[j], ysGrid[j + 1], zTop, solidBottom);
+      }
+    } else {
+      const x1 = xMin + RIM_OUTER_WALL;
+      const x2 = -RIM_INNER_COLLAR;
+      for (const s of ySegs) {
+        // Outer wall [xMin, x1]
+        emitTopAndOptionalBottomQuad(tc, xMin, x1, s.a, s.ribA, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, xMin, x1, s.ribA, s.ribB, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, xMin, x1, s.ribB, s.b, zTop, solidBottom);
+        // Ribs [x1, x2]
+        emitTopAndOptionalBottomQuad(tc, x1, x2, s.a, s.ribA, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, x1, x2, s.ribB, s.b, zTop, solidBottom);
+        // Cutout pocket [x1, x2] x [s.ribA, s.ribB]
+        emitCutoutPocket(tc, x1, x2, s.ribA, s.ribB, zCutBot, zTop, solidBottom);
+        // Inner collar [x2, 0] bridging (s.a, s.ribA, s.ribB, s.b) to (s.a, s.cellB, s.cellC, s.b)
+        tc.quad([x2, s.a, zTop], [0, s.a, zTop], [0, s.cellB, zTop], [x2, s.ribA, zTop]);
+        tc.quad([x2, s.ribA, zTop], [0, s.cellB, zTop], [0, s.cellC, zTop], [x2, s.ribB, zTop]);
+        tc.quad([x2, s.ribB, zTop], [0, s.cellC, zTop], [0, s.b, zTop], [x2, s.b, zTop]);
+        if (!solidBottom) {
+          tc.quad([x2, s.ribA, 0], [0, s.cellB, 0], [0, s.a, 0], [x2, s.a, 0]);
+          tc.quad([x2, s.ribB, 0], [0, s.cellC, 0], [0, s.cellB, 0], [x2, s.ribA, 0]);
+          tc.quad([x2, s.b, 0], [0, s.b, 0], [0, s.cellC, 0], [x2, s.ribB, 0]);
+        }
       }
     }
   }
-  // Right rim: [gridW, gridW + padR] x [0, gridD]
+
+  // Right rim: [gridW, xMax] x [0, gridD]
   if (padR > 0) {
-    for (let j = 0; j < ysGrid.length - 1; j++) {
-      const ya = ysGrid[j];
-      const yb = ysGrid[j + 1];
-      tc.quad([gridW, ya, zTop], [xMax, ya, zTop], [xMax, yb, zTop], [gridW, yb, zTop]);
-      if (!solidBottom) {
-        tc.quad([gridW, yb, 0], [xMax, yb, 0], [xMax, ya, 0], [gridW, ya, 0]);
+    if (!cutR) {
+      for (let j = 0; j < ysGrid.length - 1; j++) {
+        emitTopAndOptionalBottomQuad(tc, gridW, xMax, ysGrid[j], ysGrid[j + 1], zTop, solidBottom);
+      }
+    } else {
+      const x1 = gridW + RIM_INNER_COLLAR;
+      const x2 = xMax - RIM_OUTER_WALL;
+      for (const s of ySegs) {
+        // Outer wall [x2, xMax]
+        emitTopAndOptionalBottomQuad(tc, x2, xMax, s.a, s.ribA, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, x2, xMax, s.ribA, s.ribB, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, x2, xMax, s.ribB, s.b, zTop, solidBottom);
+        // Ribs [x1, x2]
+        emitTopAndOptionalBottomQuad(tc, x1, x2, s.a, s.ribA, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, x1, x2, s.ribB, s.b, zTop, solidBottom);
+        // Cutout pocket
+        emitCutoutPocket(tc, x1, x2, s.ribA, s.ribB, zCutBot, zTop, solidBottom);
+        // Inner collar [gridW, x1] bridging (s.a, s.cellB, s.cellC, s.b) to (s.a, s.ribA, s.ribB, s.b)
+        tc.quad([gridW, s.a, zTop], [x1, s.a, zTop], [x1, s.ribA, zTop], [gridW, s.cellB, zTop]);
+        tc.quad([gridW, s.cellB, zTop], [x1, s.ribA, zTop], [x1, s.ribB, zTop], [gridW, s.cellC, zTop]);
+        tc.quad([gridW, s.cellC, zTop], [x1, s.ribB, zTop], [x1, s.b, zTop], [gridW, s.b, zTop]);
+        if (!solidBottom) {
+          tc.quad([gridW, s.cellB, 0], [x1, s.ribA, 0], [x1, s.a, 0], [gridW, s.a, 0]);
+          tc.quad([gridW, s.cellC, 0], [x1, s.ribB, 0], [x1, s.ribA, 0], [gridW, s.cellB, 0]);
+          tc.quad([gridW, s.b, 0], [x1, s.b, 0], [x1, s.ribB, 0], [gridW, s.cellC, 0]);
+        }
       }
     }
   }
-  // Bottom rim: [0, gridW] x [-padB, 0]
+
+  // Bottom rim: [0, gridW] x [yMin, 0]
   if (padB > 0) {
-    for (let i = 0; i < xsGrid.length - 1; i++) {
-      const xa = xsGrid[i];
-      const xb = xsGrid[i + 1];
-      tc.quad([xa, yMin, zTop], [xb, yMin, zTop], [xb, 0, zTop], [xa, 0, zTop]);
-      if (!solidBottom) {
-        tc.quad([xa, 0, 0], [xb, 0, 0], [xb, yMin, 0], [xa, yMin, 0]);
+    if (!cutB) {
+      for (let i = 0; i < xsGrid.length - 1; i++) {
+        emitTopAndOptionalBottomQuad(tc, xsGrid[i], xsGrid[i + 1], yMin, 0, zTop, solidBottom);
+      }
+    } else {
+      const y1 = yMin + RIM_OUTER_WALL;
+      const y2 = -RIM_INNER_COLLAR;
+      for (const s of xSegs) {
+        // Outer wall [yMin, y1]
+        emitTopAndOptionalBottomQuad(tc, s.a, s.ribA, yMin, y1, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, s.ribA, s.ribB, yMin, y1, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, s.ribB, s.b, yMin, y1, zTop, solidBottom);
+        // Ribs [y1, y2]
+        emitTopAndOptionalBottomQuad(tc, s.a, s.ribA, y1, y2, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, s.ribB, s.b, y1, y2, zTop, solidBottom);
+        // Cutout pocket
+        emitCutoutPocket(tc, s.ribA, s.ribB, y1, y2, zCutBot, zTop, solidBottom);
+        // Inner collar [y2, 0]
+        tc.quad([s.a, y2, zTop], [s.ribA, y2, zTop], [s.cellB, 0, zTop], [s.a, 0, zTop]);
+        tc.quad([s.ribA, y2, zTop], [s.ribB, y2, zTop], [s.cellC, 0, zTop], [s.cellB, 0, zTop]);
+        tc.quad([s.ribB, y2, zTop], [s.b, y2, zTop], [s.b, 0, zTop], [s.cellC, 0, zTop]);
+        if (!solidBottom) {
+          tc.quad([s.a, 0, 0], [s.cellB, 0, 0], [s.ribA, y2, 0], [s.a, y2, 0]);
+          tc.quad([s.cellB, 0, 0], [s.cellC, 0, 0], [s.ribB, y2, 0], [s.ribA, y2, 0]);
+          tc.quad([s.cellC, 0, 0], [s.b, 0, 0], [s.b, y2, 0], [s.ribB, y2, 0]);
+        }
       }
     }
   }
-  // Top rim: [0, gridW] x [gridD, gridD + padT]
+
+  // Top rim: [0, gridW] x [gridD, yMax]
   if (padT > 0) {
-    for (let i = 0; i < xsGrid.length - 1; i++) {
-      const xa = xsGrid[i];
-      const xb = xsGrid[i + 1];
-      tc.quad([xa, gridD, zTop], [xb, gridD, zTop], [xb, yMax, zTop], [xa, yMax, zTop]);
-      if (!solidBottom) {
-        tc.quad([xa, yMax, 0], [xb, yMax, 0], [xb, gridD, 0], [xa, gridD, 0]);
+    if (!cutT) {
+      for (let i = 0; i < xsGrid.length - 1; i++) {
+        emitTopAndOptionalBottomQuad(tc, xsGrid[i], xsGrid[i + 1], gridD, yMax, zTop, solidBottom);
+      }
+    } else {
+      const y1 = gridD + RIM_INNER_COLLAR;
+      const y2 = yMax - RIM_OUTER_WALL;
+      for (const s of xSegs) {
+        // Outer wall [y2, yMax]
+        emitTopAndOptionalBottomQuad(tc, s.a, s.ribA, y2, yMax, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, s.ribA, s.ribB, y2, yMax, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, s.ribB, s.b, y2, yMax, zTop, solidBottom);
+        // Ribs [y1, y2]
+        emitTopAndOptionalBottomQuad(tc, s.a, s.ribA, y1, y2, zTop, solidBottom);
+        emitTopAndOptionalBottomQuad(tc, s.ribB, s.b, y1, y2, zTop, solidBottom);
+        // Cutout pocket
+        emitCutoutPocket(tc, s.ribA, s.ribB, y1, y2, zCutBot, zTop, solidBottom);
+        // Inner collar [gridD, y1]
+        tc.quad([s.a, gridD, zTop], [s.cellB, gridD, zTop], [s.ribA, y1, zTop], [s.a, y1, zTop]);
+        tc.quad([s.cellB, gridD, zTop], [s.cellC, gridD, zTop], [s.ribB, y1, zTop], [s.ribA, y1, zTop]);
+        tc.quad([s.cellC, gridD, zTop], [s.b, gridD, zTop], [s.b, y1, zTop], [s.ribB, y1, zTop]);
+        if (!solidBottom) {
+          tc.quad([s.a, y1, 0], [s.ribA, y1, 0], [s.cellB, gridD, 0], [s.a, gridD, 0]);
+          tc.quad([s.ribA, y1, 0], [s.ribB, y1, 0], [s.cellC, gridD, 0], [s.cellB, gridD, 0]);
+          tc.quad([s.ribB, y1, 0], [s.b, y1, 0], [s.b, gridD, 0], [s.cellC, gridD, 0]);
+        }
       }
     }
   }
 
-  // 4 Corner rim patches
-  const cornerPatches = [
-    { cond: padL > 0 && padB > 0, ax: xMin, bx: 0, ay: yMin, by: 0 },
-    { cond: padR > 0 && padB > 0, ax: gridW, bx: xMax, ay: yMin, by: 0 },
-    { cond: padR > 0 && padT > 0, ax: gridW, bx: xMax, ay: gridD, by: yMax },
-    { cond: padL > 0 && padT > 0, ax: xMin, bx: 0, ay: gridD, by: yMax },
+  // 4 Corner rim patches (each uses exact X breaks of Left/Right and Y breaks of Bottom/Top)
+  const xBreaksL = cutL ? [xMin, xMin + RIM_OUTER_WALL, -RIM_INNER_COLLAR, 0] : [xMin, 0];
+  const xBreaksR = cutR ? [gridW, gridW + RIM_INNER_COLLAR, xMax - RIM_OUTER_WALL, xMax] : [gridW, xMax];
+  const yBreaksB = cutB ? [yMin, yMin + RIM_OUTER_WALL, -RIM_INNER_COLLAR, 0] : [yMin, 0];
+  const yBreaksT = cutT ? [gridD, gridD + RIM_INNER_COLLAR, yMax - RIM_OUTER_WALL, yMax] : [gridD, yMax];
+
+  const cornerConfigs = [
+    { cond: padL > 0 && padB > 0, xs: xBreaksL, ys: yBreaksB, canCut: cutL && cutB },
+    { cond: padR > 0 && padB > 0, xs: xBreaksR, ys: yBreaksB, canCut: cutR && cutB },
+    { cond: padR > 0 && padT > 0, xs: xBreaksR, ys: yBreaksT, canCut: cutR && cutT },
+    { cond: padL > 0 && padT > 0, xs: xBreaksL, ys: yBreaksT, canCut: cutL && cutT },
   ];
-  for (const cp of cornerPatches) {
-    if (!cp.cond) continue;
-    tc.quad([cp.ax, cp.ay, zTop], [cp.bx, cp.ay, zTop], [cp.bx, cp.by, zTop], [cp.ax, cp.by, zTop]);
-    if (!solidBottom) {
-      tc.quad([cp.ax, cp.by, 0], [cp.bx, cp.by, 0], [cp.bx, cp.ay, 0], [cp.ax, cp.ay, 0]);
+  for (const cc of cornerConfigs) {
+    if (!cc.cond) continue;
+    for (let i = 0; i < cc.xs.length - 1; i++) {
+      for (let j = 0; j < cc.ys.length - 1; j++) {
+        if (cc.canCut && i === 1 && j === 1) {
+          emitCutoutPocket(tc, cc.xs[1], cc.xs[2], cc.ys[1], cc.ys[2], zCutBot, zTop, solidBottom);
+        } else {
+          emitTopAndOptionalBottomQuad(tc, cc.xs[i], cc.xs[i + 1], cc.ys[j], cc.ys[j + 1], zTop, solidBottom);
+        }
+      }
     }
   }
 
-  const perimXs = [
-    ...(padL > 0 ? [xMin] : []),
-    ...xsGrid,
-    ...(padR > 0 ? [xMax] : []),
+  // Outer perimeter X/Y break lists matching every corner and rim segment
+  const gridRimBreaks = (segs) => {
+    const pts = [0];
+    for (const s of segs) pts.push(s.ribA, s.ribB, s.b);
+    return pts;
+  };
+  const xsBotRim = cutB ? gridRimBreaks(xSegs) : xsGrid;
+  const xsTopRim = cutT ? gridRimBreaks(xSegs) : xsGrid;
+  const ysLeftRim = cutL ? gridRimBreaks(ySegs) : ysGrid;
+  const ysRightRim = cutR ? gridRimBreaks(ySegs) : ysGrid;
+
+  const perimBotXs = [
+    ...(padL > 0 ? xBreaksL.slice(0, -1) : []),
+    ...xsBotRim,
+    ...(padR > 0 ? xBreaksR.slice(1) : []),
   ];
-  const perimYs = [
-    ...(padB > 0 ? [yMin] : []),
-    ...ysGrid,
-    ...(padT > 0 ? [yMax] : []),
+  const perimTopXs = [
+    ...(padL > 0 ? xBreaksL.slice(0, -1) : []),
+    ...xsTopRim,
+    ...(padR > 0 ? xBreaksR.slice(1) : []),
+  ];
+  const perimRightYs = [
+    ...(padB > 0 ? yBreaksB.slice(0, -1) : []),
+    ...ysRightRim,
+    ...(padT > 0 ? yBreaksT.slice(1) : []),
+  ];
+  const perimLeftYs = [
+    ...(padB > 0 ? yBreaksB.slice(0, -1) : []),
+    ...ysLeftRim,
+    ...(padT > 0 ? yBreaksT.slice(1) : []),
   ];
 
   // Outer vertical walls
-  for (let i = 0; i < perimXs.length - 1; i++) {
-    tc.quad([perimXs[i], yMin, 0], [perimXs[i + 1], yMin, 0], [perimXs[i + 1], yMin, zTop], [perimXs[i], yMin, zTop]);
+  for (let i = 0; i < perimBotXs.length - 1; i++) {
+    tc.quad([perimBotXs[i], yMin, 0], [perimBotXs[i + 1], yMin, 0], [perimBotXs[i + 1], yMin, zTop], [perimBotXs[i], yMin, zTop]);
   }
-  for (let j = 0; j < perimYs.length - 1; j++) {
-    tc.quad([xMax, perimYs[j], 0], [xMax, perimYs[j + 1], 0], [xMax, perimYs[j + 1], zTop], [xMax, perimYs[j], zTop]);
+  for (let j = 0; j < perimRightYs.length - 1; j++) {
+    tc.quad([xMax, perimRightYs[j], 0], [xMax, perimRightYs[j + 1], 0], [xMax, perimRightYs[j + 1], zTop], [xMax, perimRightYs[j], zTop]);
   }
-  for (let i = perimXs.length - 1; i > 0; i--) {
-    tc.quad([perimXs[i], yMax, 0], [perimXs[i - 1], yMax, 0], [perimXs[i - 1], yMax, zTop], [perimXs[i], yMax, zTop]);
+  for (let i = perimTopXs.length - 1; i > 0; i--) {
+    tc.quad([perimTopXs[i], yMax, 0], [perimTopXs[i - 1], yMax, 0], [perimTopXs[i - 1], yMax, zTop], [perimTopXs[i], yMax, zTop]);
   }
-  for (let j = perimYs.length - 1; j > 0; j--) {
-    tc.quad([xMin, perimYs[j], 0], [xMin, perimYs[j - 1], 0], [xMin, perimYs[j - 1], zTop], [xMin, perimYs[j], zTop]);
+  for (let j = perimLeftYs.length - 1; j > 0; j--) {
+    tc.quad([xMin, perimLeftYs[j], 0], [xMin, perimLeftYs[j - 1], 0], [xMin, perimLeftYs[j - 1], zTop], [xMin, perimLeftYs[j], zTop]);
   }
 
   if (solidBottom) {
     const center = [(xMin + xMax) / 2, (yMin + yMax) / 2, 0];
-    for (let i = 0; i < perimXs.length - 1; i++) {
-      tc.tri(center, [perimXs[i + 1], yMin, 0], [perimXs[i], yMin, 0]);
+    for (let i = 0; i < perimBotXs.length - 1; i++) {
+      tc.tri(center, [perimBotXs[i + 1], yMin, 0], [perimBotXs[i], yMin, 0]);
     }
-    for (let j = 0; j < perimYs.length - 1; j++) {
-      tc.tri(center, [xMax, perimYs[j + 1], 0], [xMax, perimYs[j], 0]);
+    for (let j = 0; j < perimRightYs.length - 1; j++) {
+      tc.tri(center, [xMax, perimRightYs[j + 1], 0], [xMax, perimRightYs[j], 0]);
     }
-    for (let i = perimXs.length - 1; i > 0; i--) {
-      tc.tri(center, [perimXs[i - 1], yMax, 0], [perimXs[i], yMax, 0]);
+    for (let i = perimTopXs.length - 1; i > 0; i--) {
+      tc.tri(center, [perimTopXs[i - 1], yMax, 0], [perimTopXs[i], yMax, 0]);
     }
-    for (let j = perimYs.length - 1; j > 0; j--) {
-      tc.tri(center, [xMin, perimYs[j - 1], 0], [xMin, perimYs[j], 0]);
+    for (let j = perimLeftYs.length - 1; j > 0; j--) {
+      tc.tri(center, [xMin, perimLeftYs[j - 1], 0], [xMin, perimLeftYs[j], 0]);
     }
   }
 }
@@ -215,7 +383,7 @@ function addBorderRimsAndWalls(tc, { nx, ny, padL, padR, padB, padT, zTop, solid
 /**
  * Standard Solid (4.65 mm) Gridfinity baseplate mesh.
  */
-function buildStandardMesh(tc, spec, floorH) {
+function buildStandardMesh(tc, spec, floorH, rimStyle) {
   const { nx, ny, padL = 0, padR = 0, padB = 0, padT = 0 } = spec;
   const z0 = floorH;
   const z1 = floorH + STD_H_BOTTOM;
@@ -310,7 +478,8 @@ function buildStandardMesh(tc, spec, floorH) {
     padB,
     padT,
     zTop: z3,
-    solidBottom: floorH > 0,
+    floorH,
+    rimStyle,
     xsGrid,
     ysGrid,
   });
@@ -323,7 +492,7 @@ function buildStandardMesh(tc, spec, floorH) {
  * 45 deg upper bevel to z=4.25 with 0.40 mm blunted top lip (0.80 mm across dividers),
  * and self-supporting 45 deg hollow underside channels under interior dividers.
  */
-function buildFastLightweightMesh(tc, spec) {
+function buildFastLightweightMesh(tc, spec, rimStyle) {
   const { nx, ny, padL = 0, padR = 0, padB = 0, padT = 0 } = spec;
   const zTop = FAST_SOCKET_HEIGHT; // 4.25 mm
   const xsGrid = buildGridBreaks(nx);
@@ -570,7 +739,8 @@ function buildFastLightweightMesh(tc, spec) {
     padB,
     padT,
     zTop,
-    solidBottom: false,
+    floorH: 0,
+    rimStyle,
     xsGrid,
     ysGrid,
   });
@@ -581,18 +751,19 @@ function buildFastLightweightMesh(tc, spec) {
  * Generate a 100% watertight, 2-manifold triangle mesh for a Gridfinity baseplate tile.
  * Coordinates are centered in XY around (0, 0) with Z starting at 0.
  * @param {object} spec { nx, ny, padL, padR, padB, padT }
- * @param {object} options { style: 'fast' | 'solid', floorThicknessMm: number }
+ * @param {object} options { style: 'fast' | 'solid', floorThicknessMm: number, rimStyle: 'grid' | 'solid' }
  */
 export function generateTileMesh(spec, options = {}) {
   const opts = typeof options === 'number' ? { style: 'solid', floorThicknessMm: options } : options;
   const style = opts.style || 'fast';
   const floorH = Math.max(0, opts.floorThicknessMm || 0);
+  const rimStyle = opts.rimStyle || 'grid';
 
   const tc = new TriangleCollector();
   const heightMm =
     style === 'fast'
-      ? buildFastLightweightMesh(tc, spec)
-      : buildStandardMesh(tc, spec, floorH);
+      ? buildFastLightweightMesh(tc, spec, rimStyle)
+      : buildStandardMesh(tc, spec, floorH, rimStyle);
 
   const gridW = spec.nx * GRIDFINITY_PITCH;
   const gridD = spec.ny * GRIDFINITY_PITCH;

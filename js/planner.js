@@ -174,10 +174,14 @@ export function planDrawerLayout({
   bedWidthMm,
   bedDepthMm,
   clearanceMm = 1,
-  fillMargins = true,
+  marginFill = 'grid', // 'grid' | 'solid' | 'none'
+  fillMargins, // legacy boolean fallback
   marginAlignment = 'center', // 'center' | 'corner'
   floorThicknessMm = 0,
 }) {
+  const effectiveMarginFill =
+    typeof fillMargins === 'boolean' ? (fillMargins ? 'solid' : 'none') : marginFill;
+  const hasMargins = effectiveMarginFill !== 'none';
   const effW = Math.max(0, drawerWidthMm - clearanceMm);
   const effD = Math.max(0, drawerDepthMm - clearanceMm);
 
@@ -203,7 +207,7 @@ export function planDrawerLayout({
   let padB = 0;
   let padT = 0;
 
-  if (fillMargins) {
+  if (hasMargins) {
     if (marginAlignment === 'center') {
       padL = roundRim(leftoverX / 2);
       padR = roundRim(leftoverX - padL);
@@ -372,7 +376,8 @@ export function planDrawerLayout({
     effDepthMm: roundRim(effD),
     bedWidthMm,
     bedDepthMm,
-    fillMargins,
+    marginFill: effectiveMarginFill,
+    fillMargins: hasMargins,
     floorThicknessMm,
     cols,
     rows,

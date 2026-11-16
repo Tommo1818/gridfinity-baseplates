@@ -1,6 +1,13 @@
 import { BAMBU_PRESETS, getPresetById } from './printers.js';
 import { GRIDFINITY_PITCH, planDrawerLayout } from './planner.js';
-import { generateTileMesh, encodeBinaryStl } from './mesh.js';
+import {
+  generateTileMesh,
+  encodeBinaryStl,
+  RIM_OUTER_WALL,
+  RIM_INNER_COLLAR,
+  RIM_RIB_THICKNESS,
+  MIN_GRID_RIM_PAD,
+} from './mesh.js';
 import { createZipBlob } from './zip.js';
 import { Viewer3D } from './viewer3d.js';
 
@@ -28,7 +35,7 @@ const state = {
   drawerWidthMm: 400,
   drawerDepthMm: 350,
   clearanceMm: 1,
-  fillMargins: true,
+  marginFill: 'grid', // 'grid' | 'solid' | 'none'
   presetId: 'a1-mini',
   bedWidthMm: 180,
   bedDepthMm: 180,
@@ -44,7 +51,7 @@ const els = {
   drawerWidth: document.getElementById('drawerWidth'),
   drawerDepth: document.getElementById('drawerDepth'),
   clearanceInput: document.getElementById('clearanceInput'),
-  fillMargins: document.getElementById('fillMargins'),
+  rimHint: document.getElementById('rimHint'),
   printerPreset: document.getElementById('printerPreset'),
   printerNote: document.getElementById('printerNote'),
   bedBadge: document.getElementById('bedBadge'),
@@ -82,13 +89,14 @@ function formatUnitVal(mm, unit) {
 }
 
 function getMeshOptions() {
+  const rimStyle = state.marginFill === 'solid' ? 'solid' : 'grid';
   if (state.meshStyle === 'fast') {
-    return { style: 'fast', floorThicknessMm: 0 };
+    return { style: 'fast', floorThicknessMm: 0, rimStyle };
   }
   if (state.meshStyle === 'solid-floor') {
-    return { style: 'solid', floorThicknessMm: 1.2 };
+    return { style: 'solid', floorThicknessMm: 1.2, rimStyle };
   }
-  return { style: 'solid', floorThicknessMm: 0 };
+  return { style: 'solid', floorThicknessMm: 0, rimStyle };
 }
 
 function initPresets() {
@@ -128,7 +136,7 @@ function recomputeAndRender(resetCamera = false) {
     bedWidthMm: state.bedWidthMm,
     bedDepthMm: state.bedDepthMm,
     clearanceMm: state.clearanceMm,
-    fillMargins: state.fillMargins,
+    marginFill: state.marginFill,
     marginAlignment: 'center',
     floorThicknessMm: meshOpts.floorThicknessMm,
   });
@@ -183,7 +191,8 @@ function renderKpis(plan) {
 
   els.kpiSize.textContent = `${plan.totalWidthMm} × ${plan.totalDepthMm} mm`;
   if (plan.fillMargins && (plan.leftoverX > 0.05 || plan.leftoverY > 0.05)) {
-    els.kpiRims.textContent = `Includes ${plan.padL}/${plan.padR} mm X, ${plan.padB}/${plan.padT} mm Y rim`;
+    const rimLabel = plan.marginFill === 'grid' ? 'grid rim' : 'solid rim';
+    els.kpiRims.textContent = `${rimLabel}: ${plan.padL}/${plan.padR} mm X, ${plan.padB}/${plan.padT} mm Y`;
   } else {
     els.kpiRims.textContent = `Drawer interior: ${Math.round(plan.drawerWidthMm * 10) / 10} × ${Math.round(plan.drawerDepthMm * 10) / 10} mm`;
   }
@@ -300,6 +309,102 @@ function render2DMap(plan) {
             'stroke-width': 0.7 * strokeScale,
             rx: 3.5,
           })
+        );
+      }
+    }
+
+    // Draw smaller grid-rim cutouts in 2D map when marginFill === 'grid'
+    if (plan.marginFill === 'grid') {
+      const drawRimPocket = (px, py, pw, ph) => {
+        if (pw <= 0 || ph <= 0) return;
+        g.appendChild(
+          svgEl('rect', {
+            x: px,
+            y: py,
+            width: pw,
+            height: ph,
+            fill: '#0b0e14',
+            'fill-opacity': 0.55,
+            stroke: color,
+            'stroke-opacity': 0.45,
+            'stroke-width': 0.6 * strokeScale,
+            rx: 0.8 * strokeScale,
+          })
+        );
+      };
+      const gridW = tile.spec.nx * GRIDFINITY_PITCH;
+      const gridD = tile.spec.ny * GRIDFINITY_PITCH;
+      const cutL = tile.spec.padL >= MIN_GRID_RIM_PAD;
+      const cutR = tile.spec.padR >= MIN_GRID_RIM_PAD;
+      const cutT = tile.spec.padT >= MIN_GRID_RIM_PAD; // SVG top corresponds to spec.padT
+      const cutB = tile.spec.padB >= MIN_GRID_RIM_PAD; // SVG bottom corresponds to spec.padB
+
+      if (cutL) {
+        const px = tx + RIM_OUTER_WALL;
+        const pw = tile.spec.padL - RIM_OUTER_WALL - RIM_INNER_COLLAR;
+        for (let cy = 0; cy < tile.spec.ny; cy++) {
+          const ribT = cy === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
+          const ribB = cy === tile.spec.ny - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
+          drawRimPocket(px, gridOriginY + cy * GRIDFINITY_PITCH + ribT, pw, GRIDFINITY_PITCH - ribT - ribB);
+        }
+      }
+      if (cutR) {
+        const px = gridOriginX + gridW + RIM_INNER_COLLAR;
+        const pw = tile.spec.padR - RIM_OUTER_WALL - RIM_INNER_COLLAR;
+        for (let cy = 0; cy < tile.spec.ny; cy++) {
+          const ribT = cy === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
+          const ribB = cy === tile.spec.ny - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
+          drawRimPocket(px, gridOriginY + cy * GRIDFINITY_PITCH + ribT, pw, GRIDFINITY_PITCH - ribT - ribB);
+        }
+      }
+      if (cutT) {
+        const py = ty + RIM_OUTER_WALL;
+        const ph = tile.spec.padT - RIM_OUTER_WALL - RIM_INNER_COLLAR;
+        for (let cx = 0; cx < tile.spec.nx; cx++) {
+          const ribL = cx === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
+          const ribR = cx === tile.spec.nx - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
+          drawRimPocket(gridOriginX + cx * GRIDFINITY_PITCH + ribL, py, GRIDFINITY_PITCH - ribL - ribR, ph);
+        }
+      }
+      if (cutB) {
+        const py = gridOriginY + gridD + RIM_INNER_COLLAR;
+        const ph = tile.spec.padB - RIM_OUTER_WALL - RIM_INNER_COLLAR;
+        for (let cx = 0; cx < tile.spec.nx; cx++) {
+          const ribL = cx === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
+          const ribR = cx === tile.spec.nx - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
+          drawRimPocket(gridOriginX + cx * GRIDFINITY_PITCH + ribL, py, GRIDFINITY_PITCH - ribL - ribR, ph);
+        }
+      }
+      if (cutL && cutT) {
+        drawRimPocket(
+          tx + RIM_OUTER_WALL,
+          ty + RIM_OUTER_WALL,
+          tile.spec.padL - RIM_OUTER_WALL - RIM_INNER_COLLAR,
+          tile.spec.padT - RIM_OUTER_WALL - RIM_INNER_COLLAR
+        );
+      }
+      if (cutR && cutT) {
+        drawRimPocket(
+          gridOriginX + gridW + RIM_INNER_COLLAR,
+          ty + RIM_OUTER_WALL,
+          tile.spec.padR - RIM_OUTER_WALL - RIM_INNER_COLLAR,
+          tile.spec.padT - RIM_OUTER_WALL - RIM_INNER_COLLAR
+        );
+      }
+      if (cutL && cutB) {
+        drawRimPocket(
+          tx + RIM_OUTER_WALL,
+          gridOriginY + gridD + RIM_INNER_COLLAR,
+          tile.spec.padL - RIM_OUTER_WALL - RIM_INNER_COLLAR,
+          tile.spec.padB - RIM_OUTER_WALL - RIM_INNER_COLLAR
+        );
+      }
+      if (cutR && cutB) {
+        drawRimPocket(
+          gridOriginX + gridW + RIM_INNER_COLLAR,
+          gridOriginY + gridD + RIM_INNER_COLLAR,
+          tile.spec.padR - RIM_OUTER_WALL - RIM_INNER_COLLAR,
+          tile.spec.padB - RIM_OUTER_WALL - RIM_INNER_COLLAR
         );
       }
     }
@@ -616,21 +721,39 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
+const RIM_HINTS = {
+  grid: 'Fills extra space with a smaller open-cell grid border so tiles stay snug while saving filament.',
+  solid: 'Fully fills extra space around the outer tiles with a solid flat border rim.',
+  none: 'Outputs pure 42 × 42 mm Gridfinity tiles only, leaving any extra drawer margin open.',
+};
+
 // Wire events
 function bindEvents() {
   // Unit switcher
-  document.querySelectorAll('.seg-btn').forEach((btn) => {
+  document.querySelectorAll('[data-unit]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const nextUnit = btn.dataset.unit;
       if (nextUnit === state.unit) return;
       state.unit = nextUnit;
-      document.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('[data-unit]').forEach((b) => b.classList.toggle('active', b === btn));
       document.querySelectorAll('.unit-label').forEach((el) => {
         el.textContent = nextUnit;
       });
       els.drawerWidth.value = formatUnitVal(state.drawerWidthMm, nextUnit);
       els.drawerDepth.value = formatUnitVal(state.drawerDepthMm, nextUnit);
       els.clearanceInput.value = formatUnitVal(state.clearanceMm, nextUnit);
+    });
+  });
+
+  // Leftover space rim mode switcher
+  document.querySelectorAll('[data-rim]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nextRim = btn.dataset.rim;
+      if (nextRim === state.marginFill) return;
+      state.marginFill = nextRim;
+      document.querySelectorAll('[data-rim]').forEach((b) => b.classList.toggle('active', b === btn));
+      els.rimHint.textContent = RIM_HINTS[nextRim];
+      recomputeAndRender(true);
     });
   });
 
@@ -642,14 +765,12 @@ function bindEvents() {
     if (Number.isFinite(w) && w > 0) state.drawerWidthMm = w * f;
     if (Number.isFinite(d) && d > 0) state.drawerDepthMm = d * f;
     state.clearanceMm = Number.isFinite(c) && c >= 0 ? c * f : 0;
-    state.fillMargins = els.fillMargins.checked;
     recomputeAndRender(true);
   };
 
   els.drawerWidth.addEventListener('input', onDrawerChange);
   els.drawerDepth.addEventListener('input', onDrawerChange);
   els.clearanceInput.addEventListener('input', onDrawerChange);
-  els.fillMargins.addEventListener('change', onDrawerChange);
 
   els.printerPreset.addEventListener('change', () => {
     state.presetId = els.printerPreset.value;

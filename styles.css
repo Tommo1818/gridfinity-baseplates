@@ -197,6 +197,27 @@ body {
   padding: 2px;
 }
 
+.segmented-full {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  width: 100%;
+}
+
+.rim-fill-group {
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.rim-fill-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
 .seg-btn {
   border: 0;
   background: transparent;
