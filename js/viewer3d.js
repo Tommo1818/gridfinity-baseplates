@@ -36,9 +36,11 @@ void main() {
 
   vec3 L1 = normalize(vec3(0.45, -0.55, 0.85));
   vec3 L2 = normalize(vec3(-0.6, 0.4, 0.35));
+  vec3 L3 = normalize(vec3(-0.35, 0.5, -0.8));
 
   float diff1 = max(dot(N, L1), 0.0);
   float diff2 = max(dot(N, L2), 0.0);
+  float diff3 = max(dot(N, L3), 0.0);
 
   vec3 H = normalize(L1 + V);
   float spec = pow(max(dot(N, H), 0.0), 36.0) * 0.22;
@@ -46,7 +48,7 @@ void main() {
   // Subtle ambient occlusion based on height to make socket walls crisp
   float ao = 0.78 + 0.22 * clamp(vWorldPos.z / 5.0, 0.0, 1.0);
 
-  vec3 lit = uColor * (0.34 + 0.62 * diff1 + 0.24 * diff2) * ao + vec3(spec);
+  vec3 lit = uColor * (0.32 + 0.60 * diff1 + 0.24 * diff2 + 0.42 * diff3) * ao + vec3(spec);
   outColor = vec4(lit, uAlpha);
 }
 `;
@@ -244,7 +246,7 @@ export class Viewer3D {
         this.target[1] -= (rightY * dx - fwdY * dy) * scale;
       } else {
         this.yaw -= dx * 0.007;
-        this.pitch = Math.max(0.12, Math.min(Math.PI * 0.49, this.pitch - dy * 0.007));
+        this.pitch = Math.max(-Math.PI * 0.49, Math.min(Math.PI * 0.49, this.pitch - dy * 0.007));
       }
       this.render();
     });

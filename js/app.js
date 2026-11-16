@@ -854,6 +854,9 @@ function bindEvents() {
       } else if (cam === 'front') {
         viewer.yaw = -Math.PI / 2;
         viewer.pitch = 0.25;
+      } else if (cam === 'bottom') {
+        viewer.yaw = -Math.PI / 2;
+        viewer.pitch = -1.52;
       }
       viewer.render();
     });
