@@ -9,6 +9,7 @@ import {
   MIN_GRID_RIM_PAD,
 } from './mesh.js';
 import { createZipBlob } from './zip.js';
+import { createBambu3mfBlob } from './threemf.js';
 import { Viewer3D } from './viewer3d.js';
 
 const TILE_COLORS = [
@@ -76,6 +77,8 @@ const els = {
   glCaption: document.getElementById('glCaption'),
   cameraControls: document.getElementById('cameraControls'),
   modelsList: document.getElementById('modelsList'),
+  download3mfBtn: document.getElementById('download3mfBtn'),
+  download3mfSecondary: document.getElementById('download3mfSecondary'),
   downloadAllBtn: document.getElementById('downloadAllBtn'),
   downloadAllSecondary: document.getElementById('downloadAllSecondary'),
 };
@@ -159,6 +162,8 @@ function recomputeAndRender(resetCamera = false) {
     els.kpiMaxTile.textContent = '—';
     els.layoutSvg.innerHTML = '';
     els.modelsList.innerHTML = '';
+    els.download3mfBtn.disabled = true;
+    els.download3mfSecondary.disabled = true;
     els.downloadAllBtn.disabled = true;
     els.downloadAllSecondary.disabled = true;
     viewer.clearScene();
@@ -167,6 +172,8 @@ function recomputeAndRender(resetCamera = false) {
   }
 
   els.errorBanner.classList.add('hidden');
+  els.download3mfBtn.disabled = false;
+  els.download3mfSecondary.disabled = false;
   els.downloadAllBtn.disabled = false;
   els.downloadAllSecondary.disabled = false;
 
@@ -707,6 +714,13 @@ function buildAssemblyGuideText(plan) {
   return lines.join('\n') + '\n';
 }
 
+function downloadBambu3mf() {
+  const plan = state.plan;
+  if (!plan || !plan.ok) return;
+  const blob = createBambu3mfBlob(plan, state.modelMeshes, state.presetId);
+  triggerDownload(blob, `gridfinity_${plan.cols}x${plan.rows}_bambu_${plan.tiles.length}plates.3mf`);
+}
+
 function downloadAllZip() {
   const plan = state.plan;
   if (!plan || !plan.ok) return;
@@ -912,6 +926,8 @@ function bindEvents() {
     });
   });
 
+  els.download3mfBtn.addEventListener('click', downloadBambu3mf);
+  els.download3mfSecondary.addEventListener('click', downloadBambu3mf);
   els.downloadAllBtn.addEventListener('click', downloadAllZip);
   els.downloadAllSecondary.addEventListener('click', downloadAllZip);
 

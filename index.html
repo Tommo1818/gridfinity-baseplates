@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Simple Gridfinity Generator</title>
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body>
   <div class="app-shell">
@@ -19,9 +19,13 @@
         </div>
       </div>
       <div class="topbar-actions">
-        <button id="downloadAllBtn" class="btn btn-primary" type="button">
+        <button id="download3mfBtn" class="btn btn-primary" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          <span>Download Bambu .3mf</span>
+        </button>
+        <button id="downloadAllBtn" class="btn btn-outline" type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>Download All (.zip)</span>
+          <span>Download STLs (.zip)</span>
         </button>
       </div>
     </header>
@@ -218,10 +222,13 @@
         <div class="card">
           <div class="card-header">
             <h2 class="label-with-tip">
-              <span>Printable 3D Models (.STL)</span>
-              <button type="button" class="tip" aria-label="About grouped STL models" data-tip="Identical tiles are grouped (including rotations) so you can print multiples of one STL file.">?</button>
+              <span>Printable 3D Models</span>
+              <button type="button" class="tip" aria-label="About Bambu 3MF and STL exports" data-tip="Bambu .3mf opens in Bambu Studio with all plates and quantities pre-arranged (Plate 1..N). Identical tiles are grouped for individual STL downloads.">?</button>
             </h2>
-            <button id="downloadAllSecondary" class="btn btn-outline" type="button">Download All (.zip)</button>
+            <div class="header-btn-group">
+              <button id="download3mfSecondary" class="btn btn-primary" type="button">Bambu .3mf (All Plates)</button>
+              <button id="downloadAllSecondary" class="btn btn-outline" type="button">STLs (.zip)</button>
+            </div>
           </div>
           <div id="modelsList" class="models-list"></div>
         </div>
@@ -229,6 +236,6 @@
     </main>
   </div>
 
-  <script type="module" src="js/app.js?v=3"></script>
+  <script type="module" src="js/app.js?v=4"></script>
 </body>
 </html>

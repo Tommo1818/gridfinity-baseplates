@@ -81,7 +81,13 @@ body {
   color: var(--muted);
 }
 
-/* Buttons */
+.topbar-actions,
+.header-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
 .btn {
   display: inline-flex;
   align-items: center;

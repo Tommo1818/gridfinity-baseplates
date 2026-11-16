@@ -13,4 +13,4 @@ A fast, zero-dependency static web app for generating printable Gridfinity basep
   - **Standard Open Frame (4.65 mm)**: Classic Zack Freedman Gridfinity profile
   - **Standard Solid Floor (5.85 mm)**: Adds a 1.2 mm solid bottom sheet
 - **Interactive 2D Assembly Map & WebGL2 3D Preview** (full drawer view + per-model print bed view)
-- **Instant Binary `.STL` & `.ZIP` export** with an included `ASSEMBLY_GUIDE.txt`
+- **Instant Bambu Studio `.3MF` & `.STL`/`.ZIP` export**: One-click multi-plate `.3mf` with every required copy pre-arranged on Plates `1..N`, or individual Binary `.stl` files + `ASSEMBLY_GUIDE.txt` in a `.zip`
