@@ -53,39 +53,51 @@
 
           <div class="field-row-inline">
             <label class="field field-compact">
-              <span>Fit Clearance (<span class="unit-label">mm</span>)</span>
+              <span class="label-with-tip">
+                <span>Fit Clearance (<span class="unit-label">mm</span>)</span>
+                <span class="tip" tabindex="0" aria-label="About fit clearance">?
+                  <span class="tip-bubble">Total gap subtracted from your drawer width and depth so printed tiles slide in smoothly without binding.</span>
+                </span>
+              </span>
               <input id="clearanceInput" type="number" min="0" step="any" value="1" />
             </label>
-            <span class="hint-inline">Total gap subtracted so tiles slide in smoothly.</span>
           </div>
 
           <div class="rim-fill-group">
-            <span class="rim-fill-label">Leftover Drawer Space</span>
+            <span class="rim-fill-label label-with-tip">
+              <span>Leftover Space</span>
+              <span class="tip" tabindex="0" aria-label="About leftover space modes">?
+                <span class="tip-bubble"><strong>Grid Rim:</strong> Lighter open-cell border that keeps tiles snug while saving filament.<br><strong>Solid Rim:</strong> Fully filled flat border.<br><strong>None:</strong> Pure 42×42 mm Gridfinity tiles only.</span>
+              </span>
+            </span>
             <div class="segmented segmented-full" role="radiogroup" aria-label="Leftover Drawer Space">
               <button type="button" class="seg-btn rim-btn active" data-rim="grid">Grid Rim</button>
               <button type="button" class="seg-btn rim-btn" data-rim="solid">Solid Rim</button>
               <button type="button" class="seg-btn rim-btn" data-rim="none">None</button>
             </div>
-            <p id="rimHint" class="hint-text">Fills extra space with a smaller open-cell grid border so tiles stay snug while saving filament.</p>
           </div>
 
           <div class="rim-fill-group">
-            <span class="rim-fill-label">Grid Position (Weighting)</span>
+            <span class="rim-fill-label label-with-tip">
+              <span>Grid Alignment</span>
+              <span class="tip" tabindex="0" aria-label="About grid alignment">?
+                <span class="tip-bubble">Push the grid to one edge or corner to combine leftover drawer space onto the opposite side.</span>
+              </span>
+            </span>
             <div class="align-grid">
-              <span class="align-axis">X Axis</span>
+              <span class="align-axis">X</span>
               <div class="segmented segmented-full" role="radiogroup" aria-label="X Axis Weighting">
                 <button type="button" class="seg-btn" data-align-x="left">Left</button>
                 <button type="button" class="seg-btn active" data-align-x="center">Center</button>
                 <button type="button" class="seg-btn" data-align-x="right">Right</button>
               </div>
-              <span class="align-axis">Y Axis</span>
+              <span class="align-axis">Y</span>
               <div class="segmented segmented-full" role="radiogroup" aria-label="Y Axis Weighting">
                 <button type="button" class="seg-btn" data-align-y="back">Back</button>
                 <button type="button" class="seg-btn active" data-align-y="center">Center</button>
                 <button type="button" class="seg-btn" data-align-y="front">Front</button>
               </div>
             </div>
-            <p class="hint-text">Push the grid to one edge or corner to combine leftover space onto the opposite side.</p>
           </div>
         </section>
 
@@ -97,12 +109,16 @@
           </div>
 
           <label class="field">
-            <span>Printer Preset</span>
+            <span class="label-with-tip">
+              <span>Printer Preset</span>
+              <span class="tip" tabindex="0" aria-label="Printer bed details">?
+                <span id="printerNote" class="tip-bubble">180 × 180 mm build plate</span>
+              </span>
+            </span>
             <select id="printerPreset"></select>
           </label>
-          <p id="printerNote" class="hint-text"></p>
 
-          <div id="customBedRow" class="field-grid-2 hidden">
+          <div id="customBedRow" class="field-grid-2 custom-bed-row hidden">
             <label class="field">
               <span>Bed Width (mm)</span>
               <input id="bedWidth" type="number" min="45" max="1000" step="1" value="220" />
@@ -123,23 +139,29 @@
           <div class="style-options" role="radiogroup" aria-label="Baseplate Style">
             <label class="style-option">
               <input type="radio" name="meshStyle" value="fast" checked />
-              <div>
+              <div class="style-title-row">
                 <strong>Fast Lightweight <span class="pill-rec">Recommended</span></strong>
-                <small>4.25 mm tall · flat bottom, hollow divider channels, least filament &amp; fastest print.</small>
+                <span class="tip" tabindex="0" aria-label="About Fast Lightweight">?
+                  <span class="tip-bubble">4.25 mm tall with flat bottom and hollow divider channels — uses the least filament and prints fastest.</span>
+                </span>
               </div>
             </label>
             <label class="style-option">
               <input type="radio" name="meshStyle" value="solid" />
-              <div>
+              <div class="style-title-row">
                 <strong>Standard Open Frame</strong>
-                <small>4.65 mm tall · classic solid-wall Gridfinity profile with bottom entry chamfer.</small>
+                <span class="tip" tabindex="0" aria-label="About Standard Open Frame">?
+                  <span class="tip-bubble">4.65 mm tall classic solid-wall Gridfinity profile with bottom entry chamfer.</span>
+                </span>
               </div>
             </label>
             <label class="style-option">
               <input type="radio" name="meshStyle" value="solid-floor" />
-              <div>
+              <div class="style-title-row">
                 <strong>Standard Solid Floor</strong>
-                <small>5.85 mm tall · adds a 1.2 mm solid bottom sheet for maximum rigidity.</small>
+                <span class="tip" tabindex="0" aria-label="About Standard Solid Floor">?
+                  <span class="tip-bubble">5.85 mm tall — adds a 1.2 mm solid bottom sheet for maximum rigidity.</span>
+                </span>
               </div>
             </label>
           </div>
@@ -209,10 +231,12 @@
         <!-- Models Download List -->
         <div class="card">
           <div class="card-header">
-            <div>
-              <h2>Printable 3D Models (.STL)</h2>
-              <p class="subhead">Identical tiles are grouped so you can print multiples of one STL.</p>
-            </div>
+            <h2 class="label-with-tip">
+              <span>Printable 3D Models (.STL)</span>
+              <span class="tip" tabindex="0" aria-label="About grouped STL models">?
+                <span class="tip-bubble">Identical tiles are grouped (including rotations) so you can print multiples of one STL file.</span>
+              </span>
+            </h2>
             <button id="downloadAllSecondary" class="btn btn-outline" type="button">Download All (.zip)</button>
           </div>
           <div id="modelsList" class="models-list"></div>

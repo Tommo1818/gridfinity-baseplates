@@ -53,7 +53,6 @@ const els = {
   drawerWidth: document.getElementById('drawerWidth'),
   drawerDepth: document.getElementById('drawerDepth'),
   clearanceInput: document.getElementById('clearanceInput'),
-  rimHint: document.getElementById('rimHint'),
   printerPreset: document.getElementById('printerPreset'),
   printerNote: document.getElementById('printerNote'),
   bedBadge: document.getElementById('bedBadge'),
@@ -740,14 +739,16 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-const RIM_HINTS = {
-  grid: 'Fills extra space with a smaller open-cell grid border so tiles stay snug while saving filament.',
-  solid: 'Fully fills extra space around the outer tiles with a solid flat border rim.',
-  none: 'Outputs pure 42 × 42 mm Gridfinity tiles only, leaving any extra drawer margin open.',
-};
-
 // Wire events
 function bindEvents() {
+  // Prevent tapping/clicking (?) tooltips inside labels from toggling inputs
+  document.querySelectorAll('.tip').forEach((tip) => {
+    tip.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+
   // Unit switcher
   document.querySelectorAll('[data-unit]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -771,7 +772,6 @@ function bindEvents() {
       if (nextRim === state.marginFill) return;
       state.marginFill = nextRim;
       document.querySelectorAll('[data-rim]').forEach((b) => b.classList.toggle('active', b === btn));
-      els.rimHint.textContent = RIM_HINTS[nextRim];
       recomputeAndRender(true);
     });
   });

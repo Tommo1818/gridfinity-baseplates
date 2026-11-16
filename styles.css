@@ -216,7 +216,7 @@ body {
 
 .align-grid {
   display: grid;
-  grid-template-columns: 48px 1fr;
+  grid-template-columns: 22px 1fr;
   gap: 7px 8px;
   align-items: center;
 }
@@ -225,6 +225,82 @@ body {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
+}
+
+.custom-bed-row {
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
+/* Accessible hover/focus tooltips */
+.label-with-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.style-title-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--card-elev);
+  border: 1px solid var(--border);
+  cursor: help;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.tip:hover,
+.tip:focus-visible {
+  color: var(--text);
+  border-color: var(--primary);
+  z-index: 100;
+}
+
+.tip-bubble {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: 245px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #111622;
+  border: 1px solid #4b5563;
+  color: #f3f4f6;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
+  display: none;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.style-title-row .tip .tip-bubble {
+  left: auto;
+  right: 0;
+}
+
+.tip:hover .tip-bubble,
+.tip:focus-visible .tip-bubble {
+  display: block;
 }
 
 .rim-fill-label {
@@ -293,8 +369,7 @@ body {
 }
 
 .field-compact {
-  width: 120px;
-  flex-shrink: 0;
+  width: 100%;
 }
 
 .hint-inline,
