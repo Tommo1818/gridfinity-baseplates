@@ -210,6 +210,23 @@ body {
   border-radius: 8px;
 }
 
+.rim-fill-group + .rim-fill-group {
+  margin-top: 10px;
+}
+
+.align-grid {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 7px 8px;
+  align-items: center;
+}
+
+.align-axis {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .rim-fill-label {
   display: block;
   font-size: 0.8rem;

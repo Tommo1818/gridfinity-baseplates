@@ -342,13 +342,16 @@ export class Viewer3D {
       gpuByKey.set(m.key, { gpu, modelIndex: m.index });
     }
 
-    const cx = plan.totalWidthMm / 2;
-    const cy = plan.totalDepthMm / 2;
+    // Drawer interior boundary centered around (0, 0)
+    const dw = plan.drawerWidthMm / 2;
+    const dd = plan.drawerDepthMm / 2;
+    const baseOffsetX = (plan.assemblyX ?? (plan.drawerWidthMm - plan.totalWidthMm) / 2) - dw;
+    const baseOffsetY = (plan.assemblyY ?? (plan.drawerDepthMm - plan.totalDepthMm) / 2) - dd;
 
     for (const tile of plan.tiles) {
       const { gpu, modelIndex } = gpuByKey.get(tile.modelKey);
-      const tx = tile.xMm + tile.widthMm / 2 - cx;
-      const ty = tile.yMm + tile.depthMm / 2 - cy;
+      const tx = baseOffsetX + tile.xMm + tile.widthMm / 2;
+      const ty = baseOffsetY + tile.yMm + tile.depthMm / 2;
       const modelMat = mat4TransformZ(tx, ty, 0, tile.placeRotationCCW);
       const dimmed = highlightModelIndex !== -1 && highlightModelIndex !== modelIndex;
       this.meshItems.push({
@@ -360,8 +363,6 @@ export class Viewer3D {
     }
 
     // Drawer interior boundary box outline
-    const dw = plan.drawerWidthMm / 2;
-    const dd = plan.drawerDepthMm / 2;
     const boxH = 24;
     const pts = [
       // Bottom rectangle

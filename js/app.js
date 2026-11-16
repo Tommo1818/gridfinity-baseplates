@@ -36,6 +36,8 @@ const state = {
   drawerDepthMm: 350,
   clearanceMm: 1,
   marginFill: 'grid', // 'grid' | 'solid' | 'none'
+  alignX: 'center', // 'left' | 'center' | 'right'
+  alignY: 'center', // 'back' | 'center' | 'front'
   presetId: 'a1-mini',
   bedWidthMm: 180,
   bedDepthMm: 180,
@@ -137,7 +139,8 @@ function recomputeAndRender(resetCamera = false) {
     bedDepthMm: state.bedDepthMm,
     clearanceMm: state.clearanceMm,
     marginFill: state.marginFill,
-    marginAlignment: 'center',
+    alignX: state.alignX,
+    alignY: state.alignY,
     floorThicknessMm: meshOpts.floorThicknessMm,
   });
 
@@ -259,9 +262,9 @@ function render2DMap(plan) {
     })
   );
 
-  // Center the assembled tiles inside the drawer interior
-  const startX = (dw - plan.totalWidthMm) / 2;
-  const startY = (dd - plan.totalDepthMm) / 2;
+  // Position assembled tiles inside drawer interior [0..dw, 0..dd]
+  const startX = plan.assemblyX ?? (dw - plan.totalWidthMm) / 2;
+  const startY = plan.assemblyY ?? (dd - plan.totalDepthMm) / 2;
 
   for (const tile of plan.tiles) {
     // Note: in SVG Y goes downward; map bottom-up drawer Y to top-down SVG so Row 1 is at bottom or top cleanly.
@@ -497,7 +500,23 @@ function render2DMap(plan) {
         'font-weight': '600',
         'font-family': 'Inter, system-ui, sans-serif',
       },
-      `Drawer Width: ${Math.round(dw * 10) / 10} mm (${plan.cols} Gridfinity cols)`
+      `Back · Drawer Width: ${Math.round(dw * 10) / 10} mm (${plan.cols} Gridfinity cols)`
+    )
+  );
+
+  svg.appendChild(
+    svgEl(
+      'text',
+      {
+        x: dw / 2,
+        y: dd + 18 * strokeScale,
+        'text-anchor': 'middle',
+        fill: '#94a3b8',
+        'font-size': labelFont * 0.9,
+        'font-weight': '600',
+        'font-family': 'Inter, system-ui, sans-serif',
+      },
+      'Front of Drawer'
     )
   );
 
@@ -753,6 +772,27 @@ function bindEvents() {
       state.marginFill = nextRim;
       document.querySelectorAll('[data-rim]').forEach((b) => b.classList.toggle('active', b === btn));
       els.rimHint.textContent = RIM_HINTS[nextRim];
+      recomputeAndRender(true);
+    });
+  });
+
+  // Grid alignment / weighting (X and Y axes)
+  document.querySelectorAll('[data-align-x]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.alignX;
+      if (next === state.alignX) return;
+      state.alignX = next;
+      document.querySelectorAll('[data-align-x]').forEach((b) => b.classList.toggle('active', b === btn));
+      recomputeAndRender(true);
+    });
+  });
+
+  document.querySelectorAll('[data-align-y]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.alignY;
+      if (next === state.alignY) return;
+      state.alignY = next;
+      document.querySelectorAll('[data-align-y]').forEach((b) => b.classList.toggle('active', b === btn));
       recomputeAndRender(true);
     });
   });

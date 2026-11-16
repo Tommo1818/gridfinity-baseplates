@@ -68,6 +68,25 @@
             </div>
             <p id="rimHint" class="hint-text">Fills extra space with a smaller open-cell grid border so tiles stay snug while saving filament.</p>
           </div>
+
+          <div class="rim-fill-group">
+            <span class="rim-fill-label">Grid Position (Weighting)</span>
+            <div class="align-grid">
+              <span class="align-axis">X Axis</span>
+              <div class="segmented segmented-full" role="radiogroup" aria-label="X Axis Weighting">
+                <button type="button" class="seg-btn" data-align-x="left">Left</button>
+                <button type="button" class="seg-btn active" data-align-x="center">Center</button>
+                <button type="button" class="seg-btn" data-align-x="right">Right</button>
+              </div>
+              <span class="align-axis">Y Axis</span>
+              <div class="segmented segmented-full" role="radiogroup" aria-label="Y Axis Weighting">
+                <button type="button" class="seg-btn" data-align-y="back">Back</button>
+                <button type="button" class="seg-btn active" data-align-y="center">Center</button>
+                <button type="button" class="seg-btn" data-align-y="front">Front</button>
+              </div>
+            </div>
+            <p class="hint-text">Push the grid to one edge or corner to combine leftover space onto the opposite side.</p>
+          </div>
         </section>
 
         <!-- Printer Bed Preset -->

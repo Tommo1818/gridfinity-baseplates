@@ -176,12 +176,16 @@ export function planDrawerLayout({
   clearanceMm = 1,
   marginFill = 'grid', // 'grid' | 'solid' | 'none'
   fillMargins, // legacy boolean fallback
-  marginAlignment = 'center', // 'center' | 'corner'
+  alignX = 'center', // 'left' | 'center' | 'right'
+  alignY = 'center', // 'back' | 'center' | 'front'
+  marginAlignment, // legacy fallback
   floorThicknessMm = 0,
 }) {
   const effectiveMarginFill =
     typeof fillMargins === 'boolean' ? (fillMargins ? 'solid' : 'none') : marginFill;
   const hasMargins = effectiveMarginFill !== 'none';
+  const effAlignX = marginAlignment === 'corner' ? 'left' : alignX;
+  const effAlignY = marginAlignment === 'corner' ? 'front' : alignY;
   const effW = Math.max(0, drawerWidthMm - clearanceMm);
   const effD = Math.max(0, drawerDepthMm - clearanceMm);
 
@@ -207,15 +211,45 @@ export function planDrawerLayout({
   let padB = 0;
   let padT = 0;
 
+  // Position of the assembled tiles' bottom-left corner inside the drawer interior [0..drawerWidthMm, 0..drawerDepthMm]
+  const halfClear = clearanceMm / 2;
+  let assemblyX = halfClear;
+  let assemblyY = halfClear;
+
   if (hasMargins) {
-    if (marginAlignment === 'center') {
+    if (effAlignX === 'left') {
+      padL = 0;
+      padR = roundRim(leftoverX);
+    } else if (effAlignX === 'right') {
+      padL = roundRim(leftoverX);
+      padR = 0;
+    } else {
       padL = roundRim(leftoverX / 2);
       padR = roundRim(leftoverX - padL);
+    }
+
+    // Y=0 is Front of drawer (bottom of 2D/3D view), Y=max is Back of drawer (top of 2D/3D view)
+    if (effAlignY === 'front') {
+      padB = 0;
+      padT = roundRim(leftoverY);
+    } else if (effAlignY === 'back') {
+      padB = roundRim(leftoverY);
+      padT = 0;
+    } else {
       padB = roundRim(leftoverY / 2);
       padT = roundRim(leftoverY - padB);
-    } else {
-      padR = roundRim(leftoverX);
-      padT = roundRim(leftoverY);
+    }
+  } else {
+    // No border rim: shift the pure Gridfinity tiles inside the drawer box according to alignX / alignY
+    if (effAlignX === 'right') {
+      assemblyX = roundRim(halfClear + leftoverX);
+    } else if (effAlignX === 'center') {
+      assemblyX = roundRim(halfClear + leftoverX / 2);
+    }
+    if (effAlignY === 'back') {
+      assemblyY = roundRim(halfClear + leftoverY);
+    } else if (effAlignY === 'center') {
+      assemblyY = roundRim(halfClear + leftoverY / 2);
     }
   }
 
@@ -378,6 +412,10 @@ export function planDrawerLayout({
     bedDepthMm,
     marginFill: effectiveMarginFill,
     fillMargins: hasMargins,
+    alignX: effAlignX,
+    alignY: effAlignY,
+    assemblyX,
+    assemblyY,
     floorThicknessMm,
     cols,
     rows,
