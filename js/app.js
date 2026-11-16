@@ -125,7 +125,7 @@ function syncPresetUI() {
     els.bedWidth.value = preset.bedX;
     els.bedDepth.value = preset.bedY;
   }
-  els.printerNote.textContent = preset.note;
+  els.printerNote.dataset.tip = preset.note;
   els.bedBadge.textContent = `${state.bedWidthMm} × ${state.bedDepthMm} mm`;
 }
 
@@ -739,15 +739,65 @@ function triggerDownload(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-// Wire events
-function bindEvents() {
-  // Prevent tapping/clicking (?) tooltips inside labels from toggling inputs
-  document.querySelectorAll('.tip').forEach((tip) => {
-    tip.addEventListener('click', (e) => {
+// Wire floating tooltips & events
+function initTooltips() {
+  const tipEl = document.createElement('div');
+  tipEl.className = 'floating-tip hidden';
+  tipEl.setAttribute('role', 'tooltip');
+  document.body.appendChild(tipEl);
+
+  let activeTarget = null;
+
+  const showTip = (target) => {
+    const text = target.dataset.tip;
+    if (!text) return;
+    activeTarget = target;
+    tipEl.textContent = text;
+    tipEl.classList.remove('hidden');
+
+    const rect = target.getBoundingClientRect();
+    const tipRect = tipEl.getBoundingClientRect();
+    const margin = 8;
+
+    let left = rect.left + rect.width / 2 - tipRect.width / 2;
+    left = Math.max(margin, Math.min(window.innerWidth - tipRect.width - margin, left));
+
+    let top = rect.top - tipRect.height - 8;
+    if (top < margin) {
+      top = rect.bottom + 8;
+    }
+
+    tipEl.style.left = `${Math.round(left)}px`;
+    tipEl.style.top = `${Math.round(top)}px`;
+  };
+
+  const hideTip = () => {
+    activeTarget = null;
+    tipEl.classList.add('hidden');
+  };
+
+  document.querySelectorAll('.tip[data-tip]').forEach((btn) => {
+    btn.addEventListener('mouseenter', () => showTip(btn));
+    btn.addEventListener('mouseleave', hideTip);
+    btn.addEventListener('focus', () => showTip(btn));
+    btn.addEventListener('blur', hideTip);
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (activeTarget === btn && !tipEl.classList.contains('hidden')) {
+        hideTip();
+      } else {
+        showTip(btn);
+      }
     });
   });
+
+  window.addEventListener('scroll', hideTip, true);
+  window.addEventListener('resize', hideTip);
+}
+
+function bindEvents() {
+  initTooltips();
 
   // Unit switcher
   document.querySelectorAll('[data-unit]').forEach((btn) => {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Simple Gridfinity Generator</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
 <body>
   <div class="app-shell">
@@ -55,9 +55,7 @@
             <label class="field field-compact">
               <span class="label-with-tip">
                 <span>Fit Clearance (<span class="unit-label">mm</span>)</span>
-                <span class="tip" tabindex="0" aria-label="About fit clearance">?
-                  <span class="tip-bubble">Total gap subtracted from your drawer width and depth so printed tiles slide in smoothly without binding.</span>
-                </span>
+                <button type="button" class="tip" aria-label="About fit clearance" data-tip="Total gap subtracted from your drawer width and depth so printed tiles slide in smoothly without binding.">?</button>
               </span>
               <input id="clearanceInput" type="number" min="0" step="any" value="1" />
             </label>
@@ -66,9 +64,7 @@
           <div class="rim-fill-group">
             <span class="rim-fill-label label-with-tip">
               <span>Leftover Space</span>
-              <span class="tip" tabindex="0" aria-label="About leftover space modes">?
-                <span class="tip-bubble"><strong>Grid Rim:</strong> Lighter open-cell border that keeps tiles snug while saving filament.<br><strong>Solid Rim:</strong> Fully filled flat border.<br><strong>None:</strong> Pure 42×42 mm Gridfinity tiles only.</span>
-              </span>
+              <button type="button" class="tip" aria-label="About leftover space modes" data-tip="Grid Rim: Lighter open-cell border that keeps tiles snug while saving filament.&#10;Solid Rim: Fully filled flat border.&#10;None: Pure 42×42 mm Gridfinity tiles only.">?</button>
             </span>
             <div class="segmented segmented-full" role="radiogroup" aria-label="Leftover Drawer Space">
               <button type="button" class="seg-btn rim-btn active" data-rim="grid">Grid Rim</button>
@@ -80,9 +76,7 @@
           <div class="rim-fill-group">
             <span class="rim-fill-label label-with-tip">
               <span>Grid Alignment</span>
-              <span class="tip" tabindex="0" aria-label="About grid alignment">?
-                <span class="tip-bubble">Push the grid to one edge or corner to combine leftover drawer space onto the opposite side.</span>
-              </span>
+              <button type="button" class="tip" aria-label="About grid alignment" data-tip="Push the grid to one edge or corner to combine leftover drawer space onto the opposite side.">?</button>
             </span>
             <div class="align-grid">
               <span class="align-axis">X</span>
@@ -111,9 +105,7 @@
           <label class="field">
             <span class="label-with-tip">
               <span>Printer Preset</span>
-              <span class="tip" tabindex="0" aria-label="Printer bed details">?
-                <span id="printerNote" class="tip-bubble">180 × 180 mm build plate</span>
-              </span>
+              <button id="printerNote" type="button" class="tip" aria-label="Printer bed details" data-tip="180 × 180 mm build plate">?</button>
             </span>
             <select id="printerPreset"></select>
           </label>
@@ -141,27 +133,21 @@
               <input type="radio" name="meshStyle" value="fast" checked />
               <div class="style-title-row">
                 <strong>Fast Lightweight <span class="pill-rec">Recommended</span></strong>
-                <span class="tip" tabindex="0" aria-label="About Fast Lightweight">?
-                  <span class="tip-bubble">4.25 mm tall with flat bottom and hollow divider channels — uses the least filament and prints fastest.</span>
-                </span>
+                <button type="button" class="tip" aria-label="About Fast Lightweight" data-tip="4.25 mm tall with flat bottom and hollow divider channels — uses the least filament and prints fastest.">?</button>
               </div>
             </label>
             <label class="style-option">
               <input type="radio" name="meshStyle" value="solid" />
               <div class="style-title-row">
                 <strong>Standard Open Frame</strong>
-                <span class="tip" tabindex="0" aria-label="About Standard Open Frame">?
-                  <span class="tip-bubble">4.65 mm tall classic solid-wall Gridfinity profile with bottom entry chamfer.</span>
-                </span>
+                <button type="button" class="tip" aria-label="About Standard Open Frame" data-tip="4.65 mm tall classic solid-wall Gridfinity profile with bottom entry chamfer.">?</button>
               </div>
             </label>
             <label class="style-option">
               <input type="radio" name="meshStyle" value="solid-floor" />
               <div class="style-title-row">
                 <strong>Standard Solid Floor</strong>
-                <span class="tip" tabindex="0" aria-label="About Standard Solid Floor">?
-                  <span class="tip-bubble">5.85 mm tall — adds a 1.2 mm solid bottom sheet for maximum rigidity.</span>
-                </span>
+                <button type="button" class="tip" aria-label="About Standard Solid Floor" data-tip="5.85 mm tall — adds a 1.2 mm solid bottom sheet for maximum rigidity.">?</button>
               </div>
             </label>
           </div>
@@ -233,9 +219,7 @@
           <div class="card-header">
             <h2 class="label-with-tip">
               <span>Printable 3D Models (.STL)</span>
-              <span class="tip" tabindex="0" aria-label="About grouped STL models">?
-                <span class="tip-bubble">Identical tiles are grouped (including rotations) so you can print multiples of one STL file.</span>
-              </span>
+              <button type="button" class="tip" aria-label="About grouped STL models" data-tip="Identical tiles are grouped (including rotations) so you can print multiples of one STL file.">?</button>
             </h2>
             <button id="downloadAllSecondary" class="btn btn-outline" type="button">Download All (.zip)</button>
           </div>
@@ -245,6 +229,6 @@
     </main>
   </div>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=3"></script>
 </body>
 </html>

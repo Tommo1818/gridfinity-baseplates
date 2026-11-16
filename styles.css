@@ -252,11 +252,14 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
+  padding: 0;
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 700;
+  font-family: inherit;
+  line-height: 1;
   color: var(--muted);
   background: var(--card-elev);
   border: 1px solid var(--border);
@@ -269,38 +272,23 @@ body {
 .tip:focus-visible {
   color: var(--text);
   border-color: var(--primary);
-  z-index: 100;
 }
 
-.tip-bubble {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 8px);
-  width: max-content;
-  max-width: 245px;
-  padding: 8px 10px;
+.floating-tip {
+  position: fixed;
+  max-width: 260px;
+  padding: 9px 11px;
   border-radius: 8px;
   background: #111622;
   border: 1px solid #4b5563;
   color: #f3f4f6;
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   font-weight: 400;
-  line-height: 1.4;
-  text-align: left;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
-  display: none;
+  line-height: 1.45;
+  white-space: pre-line;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.72);
   pointer-events: none;
-  z-index: 100;
-}
-
-.style-title-row .tip .tip-bubble {
-  left: auto;
-  right: 0;
-}
-
-.tip:hover .tip-bubble,
-.tip:focus-visible .tip-bubble {
-  display: block;
+  z-index: 9999;
 }
 
 .rim-fill-label {
