@@ -1,4 +1,4 @@
-# Gridfinity Drawer Grid Generator
+# Simple Gridfinity Generator
 
 A fast, zero-dependency static web app for generating printable Gridfinity baseplate tiles sized to any drawer and 3D printer bed.
 
