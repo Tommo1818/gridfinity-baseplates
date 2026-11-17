@@ -149,7 +149,7 @@ body {
 /* Workspace layout */
 .workspace {
   display: grid;
-  grid-template-columns: 350px 1fr;
+  grid-template-columns: 368px 1fr;
   gap: 18px;
   align-items: start;
 }
@@ -188,6 +188,21 @@ body {
   font-weight: 600;
 }
 
+.card-title-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.section-icon {
+  color: #4ade80;
+  flex-shrink: 0;
+}
+
+.inline-opt-icon {
+  flex-shrink: 0;
+}
+
 .subhead {
   margin: 2px 0 0;
   font-size: 0.8rem;
@@ -209,14 +224,86 @@ body {
   width: 100%;
 }
 
-.segmented-4 {
-  grid-template-columns: repeat(4, 1fr);
+.rim-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
 }
 
-.segmented-4 .seg-btn {
-  padding: 4px 4px;
-  font-size: 0.7rem;
-  white-space: nowrap;
+.seg-btn.rim-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.seg-btn.rim-card:hover {
+  border-color: #3f4756;
+}
+
+.seg-btn.rim-card.active {
+  background: rgba(0, 174, 66, 0.1);
+  border-color: var(--primary);
+}
+
+.rim-card-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.rim-card-text strong {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.rim-card-text small {
+  font-size: 0.66rem;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.opt-diagram {
+  flex-shrink: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.align-btn,
+.nozzle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.align-icon,
+.nozzle-icon {
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.opt-explain-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.opt-diagram-lg {
+  margin-bottom: 3px;
+}
+
+.style-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .more-options {
@@ -584,9 +671,9 @@ body {
 
 .style-option {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
   border: 1px solid var(--border);
   background: var(--bg);
   border-radius: 8px;
@@ -600,27 +687,30 @@ body {
 }
 
 .style-option input {
-  margin-top: 3px;
+  margin-top: 0;
   accent-color: var(--primary);
+  flex-shrink: 0;
 }
 
 .style-option strong {
-  display: block;
-  font-size: 0.84rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
 }
 
 .style-option small {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--muted);
   margin-top: 2px;
 }
 
 .pill-rec {
   display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
-  font-size: 0.68rem;
+  margin-left: 0;
+  padding: 1px 5px;
+  font-size: 0.6rem;
   font-weight: 600;
   border-radius: 999px;
   background: rgba(0, 174, 66, 0.2);

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Simple Gridfinity Generator</title>
-  <link rel="stylesheet" href="styles.css?v=8" />
+  <link rel="stylesheet" href="styles.css?v=9" />
 </head>
 <body>
   <div class="app-shell">
@@ -56,7 +56,10 @@
         <!-- Drawer Dimensions -->
         <section class="card">
           <div class="card-header">
-            <h2>1. Drawer Interior</h2>
+            <h2 class="card-title-icon">
+              <svg class="section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 12h10"/><path d="M9 10l-2 2 2 2"/><path d="M15 10l2 2-2 2"/></svg>
+              <span>1. Drawer Interior</span>
+            </h2>
             <div class="segmented" role="group" aria-label="Units">
               <button type="button" class="seg-btn active" data-unit="mm">mm</button>
               <button type="button" class="seg-btn" data-unit="cm">cm</button>
@@ -111,6 +114,11 @@
           <div class="field-row-inline">
             <label class="field field-compact">
               <span class="label-with-tip">
+                <svg class="inline-opt-icon" width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true">
+                  <path d="M1.5 1.5v11M16.5 1.5v11" stroke="#64748b" stroke-width="1.4" stroke-linecap="round"/>
+                  <rect x="4" y="3" width="10" height="8" rx="1" fill="rgba(74,222,128,0.16)" stroke="#4ade80" stroke-width="1.2"/>
+                  <path d="M2 7h2M14 7h2" stroke="#f59e0b" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
                 <span>Fit Clearance (<span class="unit-label">mm</span>)</span>
                 <button type="button" class="tip" aria-label="About fit clearance" data-tip="Total gap subtracted from your drawer width and depth so printed tiles slide in smoothly without binding.">?</button>
               </span>
@@ -123,11 +131,69 @@
               <span>Leftover Space</span>
               <button type="button" class="tip" aria-label="About leftover space modes" data-tip="Grid Rim: Lighter open-cell border that keeps tiles snug while saving filament.&#10;Half Grid: Adds half-size (21 mm) Gridfinity strip(s) when enough leftover width/depth fits.&#10;Solid Rim: Fully filled flat border.&#10;None: Pure Gridfinity tiles only.">?</button>
             </span>
-            <div class="segmented segmented-full segmented-4" role="radiogroup" aria-label="Leftover Drawer Space">
-              <button type="button" class="seg-btn rim-btn active" data-rim="grid">Grid Rim</button>
-              <button type="button" class="seg-btn rim-btn" data-rim="half">Half Grid</button>
-              <button type="button" class="seg-btn rim-btn" data-rim="solid">Solid Rim</button>
-              <button type="button" class="seg-btn rim-btn" data-rim="none">None</button>
+            <div class="rim-grid" role="radiogroup" aria-label="Leftover Drawer Space">
+              <button type="button" class="seg-btn rim-btn rim-card active" data-rim="grid">
+                <svg class="opt-diagram" width="42" height="28" viewBox="0 0 42 28" fill="none" aria-hidden="true">
+                  <rect x="1" y="1" width="40" height="26" rx="2" stroke="#334155" stroke-width="1" fill="#0b0e14"/>
+                  <rect x="3" y="3" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="15" y="3" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="3" y="12" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="15" y="12" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="28" y="3" width="10.5" height="17" rx="0.8" stroke="#4ade80" stroke-width="1.2" fill="rgba(74,222,128,0.08)"/>
+                  <path d="M28 11.5h10.5" stroke="#4ade80" stroke-width="0.9"/>
+                  <rect x="3" y="21.5" width="35.5" height="3.5" rx="0.8" stroke="#4ade80" stroke-width="1.2" fill="rgba(74,222,128,0.08)"/>
+                </svg>
+                <span class="rim-card-text">
+                  <strong>Grid Rim</strong>
+                  <small>Open border</small>
+                </span>
+              </button>
+              <button type="button" class="seg-btn rim-btn rim-card" data-rim="half">
+                <svg class="opt-diagram" width="42" height="28" viewBox="0 0 42 28" fill="none" aria-hidden="true">
+                  <rect x="1" y="1" width="40" height="26" rx="2" stroke="#334155" stroke-width="1" fill="#0b0e14"/>
+                  <rect x="3" y="3" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="15" y="3" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="3" y="12" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="15" y="12" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="27.5" y="3" width="6" height="8" rx="0.8" stroke="#4ade80" stroke-width="1.2" fill="rgba(74,222,128,0.22)"/>
+                  <rect x="27.5" y="12" width="6" height="8" rx="0.8" stroke="#4ade80" stroke-width="1.2" fill="rgba(74,222,128,0.22)"/>
+                  <rect x="34.5" y="3" width="4.5" height="22" rx="0.6" stroke="#475569" stroke-width="0.9" stroke-dasharray="1.5 1.5"/>
+                  <rect x="3" y="21.5" width="30.5" height="3.5" rx="0.6" stroke="#475569" stroke-width="0.9" stroke-dasharray="1.5 1.5"/>
+                </svg>
+                <span class="rim-card-text">
+                  <strong>Half Grid</strong>
+                  <small>21 mm strip</small>
+                </span>
+              </button>
+              <button type="button" class="seg-btn rim-btn rim-card" data-rim="solid">
+                <svg class="opt-diagram" width="42" height="28" viewBox="0 0 42 28" fill="none" aria-hidden="true">
+                  <rect x="1" y="1" width="40" height="26" rx="2" stroke="#334155" stroke-width="1" fill="#0b0e14"/>
+                  <rect x="3" y="3" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="15" y="3" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="3" y="12" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="15" y="12" width="11" height="8" rx="0.8" stroke="#64748b" stroke-width="1" fill="#1e293b"/>
+                  <rect x="28" y="3" width="10.5" height="17" rx="0.8" fill="rgba(74,222,128,0.45)" stroke="#4ade80" stroke-width="1.1"/>
+                  <rect x="3" y="21.5" width="35.5" height="3.5" rx="0.8" fill="rgba(74,222,128,0.45)" stroke="#4ade80" stroke-width="1.1"/>
+                </svg>
+                <span class="rim-card-text">
+                  <strong>Solid Rim</strong>
+                  <small>Filled border</small>
+                </span>
+              </button>
+              <button type="button" class="seg-btn rim-btn rim-card" data-rim="none">
+                <svg class="opt-diagram" width="42" height="28" viewBox="0 0 42 28" fill="none" aria-hidden="true">
+                  <rect x="1" y="1" width="40" height="26" rx="2" stroke="#334155" stroke-width="1" fill="#0b0e14"/>
+                  <rect x="3" y="3" width="11" height="8" rx="0.8" stroke="#4ade80" stroke-width="1.1" fill="#1e293b"/>
+                  <rect x="15" y="3" width="11" height="8" rx="0.8" stroke="#4ade80" stroke-width="1.1" fill="#1e293b"/>
+                  <rect x="3" y="12" width="11" height="8" rx="0.8" stroke="#4ade80" stroke-width="1.1" fill="#1e293b"/>
+                  <rect x="15" y="12" width="11" height="8" rx="0.8" stroke="#4ade80" stroke-width="1.1" fill="#1e293b"/>
+                  <path d="M29 6l8 12M37 6l-8 12" stroke="#334155" stroke-width="1" stroke-dasharray="2 2"/>
+                </svg>
+                <span class="rim-card-text">
+                  <strong>None</strong>
+                  <small>Tiles only</small>
+                </span>
+              </button>
             </div>
           </div>
 
@@ -139,15 +205,33 @@
             <div class="align-grid">
               <span class="align-axis">X</span>
               <div class="segmented segmented-full" role="radiogroup" aria-label="X Axis Weighting">
-                <button type="button" class="seg-btn" data-align-x="left">Left</button>
-                <button type="button" class="seg-btn active" data-align-x="center">Center</button>
-                <button type="button" class="seg-btn" data-align-x="right">Right</button>
+                <button type="button" class="seg-btn align-btn" data-align-x="left">
+                  <svg class="align-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1" y="1" width="11" height="11" rx="1.5" stroke="#475569" stroke-width="1"/><rect x="2.2" y="2.2" width="4.5" height="8.6" rx="0.8" fill="#4ade80"/></svg>
+                  <span>Left</span>
+                </button>
+                <button type="button" class="seg-btn align-btn active" data-align-x="center">
+                  <svg class="align-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1" y="1" width="11" height="11" rx="1.5" stroke="#475569" stroke-width="1"/><rect x="4.25" y="2.2" width="4.5" height="8.6" rx="0.8" fill="#4ade80"/></svg>
+                  <span>Center</span>
+                </button>
+                <button type="button" class="seg-btn align-btn" data-align-x="right">
+                  <svg class="align-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1" y="1" width="11" height="11" rx="1.5" stroke="#475569" stroke-width="1"/><rect x="6.3" y="2.2" width="4.5" height="8.6" rx="0.8" fill="#4ade80"/></svg>
+                  <span>Right</span>
+                </button>
               </div>
               <span class="align-axis">Y</span>
               <div class="segmented segmented-full" role="radiogroup" aria-label="Y Axis Weighting">
-                <button type="button" class="seg-btn" data-align-y="back">Back</button>
-                <button type="button" class="seg-btn active" data-align-y="center">Center</button>
-                <button type="button" class="seg-btn" data-align-y="front">Front</button>
+                <button type="button" class="seg-btn align-btn" data-align-y="back">
+                  <svg class="align-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1" y="1" width="11" height="11" rx="1.5" stroke="#475569" stroke-width="1"/><rect x="2.2" y="2.2" width="8.6" height="4.5" rx="0.8" fill="#4ade80"/></svg>
+                  <span>Back</span>
+                </button>
+                <button type="button" class="seg-btn align-btn active" data-align-y="center">
+                  <svg class="align-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1" y="1" width="11" height="11" rx="1.5" stroke="#475569" stroke-width="1"/><rect x="2.2" y="4.25" width="8.6" height="4.5" rx="0.8" fill="#4ade80"/></svg>
+                  <span>Center</span>
+                </button>
+                <button type="button" class="seg-btn align-btn" data-align-y="front">
+                  <svg class="align-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1" y="1" width="11" height="11" rx="1.5" stroke="#475569" stroke-width="1"/><rect x="2.2" y="6.3" width="8.6" height="4.5" rx="0.8" fill="#4ade80"/></svg>
+                  <span>Front</span>
+                </button>
               </div>
             </div>
           </div>
@@ -155,21 +239,34 @@
           <details class="more-options">
             <summary>Advanced Fit &amp; Seam Options</summary>
             <div class="more-options-body">
-              <label class="field field-compact">
-                <span class="label-with-tip">
-                  <span>Outer Corner Radius (mm)</span>
-                  <button type="button" class="tip" aria-label="About corner radius" data-tip="Rounds the 4 outer corners of the assembled baseplate to clear curved drawer corners (e.g. IKEA MAXIMERA or kitchen drawers: 6–12 mm). Set 0 for sharp square corners.">?</button>
-                </span>
-                <input id="cornerRadiusInput" type="number" min="0" max="50" step="0.5" value="0" />
-              </label>
+              <div class="opt-explain-row">
+                <svg class="opt-diagram opt-diagram-lg" width="38" height="28" viewBox="0 0 38 28" fill="none" aria-hidden="true">
+                  <path d="M5 24V5h28" stroke="#475569" stroke-width="1.1" stroke-dasharray="2.2 2"/>
+                  <path d="M5 24V13a8 8 0 0 1 8-8h20" stroke="#4ade80" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M13 13L7.5 7.5" stroke="#38bdf8" stroke-width="1" stroke-linecap="round"/>
+                  <text x="16" y="19" fill="#94a3b8" font-size="7" font-family="Inter, sans-serif" font-weight="700">R</text>
+                </svg>
+                <label class="field field-compact">
+                  <span class="label-with-tip">
+                    <span>Outer Corner Radius (mm)</span>
+                    <button type="button" class="tip" aria-label="About corner radius" data-tip="Rounds the 4 outer corners of the assembled baseplate to clear curved drawer corners (e.g. IKEA MAXIMERA or kitchen drawers: 6–12 mm). Set 0 for sharp square corners.">?</button>
+                  </span>
+                  <input id="cornerRadiusInput" type="number" min="0" max="50" step="0.5" value="0" />
+                </label>
+              </div>
 
               <label class="toggle-row toggle-compact">
                 <input id="interlockingCheck" type="checkbox" />
+                <svg class="opt-diagram" width="38" height="26" viewBox="0 0 38 26" fill="none" aria-hidden="true">
+                  <path d="M2 4h14v6l4-2v10l-4-2v6H2V4z" fill="#1e293b" stroke="#64748b" stroke-width="1.1"/>
+                  <path d="M36 4H22v6l-4-2v10l4-2v6h14V4z" fill="rgba(74,222,128,0.12)" stroke="#4ade80" stroke-width="1.2"/>
+                </svg>
                 <div>
                   <strong class="label-with-tip">
                     <span>Interlocking Tile Tabs</span>
                     <button type="button" class="tip" aria-label="About interlocking tabs" data-tip="Adds snap-fit dovetail tabs and 45° self-supporting blind slots along interior seams so tiles lock together in the drawer without glue.">?</button>
                   </strong>
+                  <small>Snap-fit dovetails lock tiles together</small>
                 </div>
               </label>
             </div>
@@ -179,7 +276,10 @@
         <!-- Printer Bed Preset -->
         <section class="card">
           <div class="card-header">
-            <h2>2. 3D Printer Bed</h2>
+            <h2 class="card-title-icon">
+              <svg class="section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M9 4h6v4l-3 3-3-3V4z"/></svg>
+              <span>2. 3D Printer Bed</span>
+            </h2>
             <span id="bedBadge" class="badge">180 × 180 mm</span>
           </div>
 
@@ -209,18 +309,31 @@
                 <button type="button" class="tip" aria-label="About nozzle preset" data-tip="Embeds the matching nozzle &amp; layer-height print profile in Bambu .3mf exports (0.20 mm layer for 0.4 mm nozzle, 0.32 mm for 0.8 mm fast nozzle).">?</button>
               </span>
               <div class="segmented" role="radiogroup" aria-label="Nozzle diameter">
-                <button type="button" class="seg-btn active" data-nozzle="0.4">0.4 mm</button>
-                <button type="button" class="seg-btn" data-nozzle="0.8">0.8 mm</button>
+                <button type="button" class="seg-btn nozzle-btn active" data-nozzle="0.4">
+                  <svg class="nozzle-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 2h6v3L6.8 9.5H5.2L3 5V2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                  <span>0.4 mm</span>
+                </button>
+                <button type="button" class="seg-btn nozzle-btn" data-nozzle="0.8">
+                  <svg class="nozzle-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2.5 2h7v2.5L7.8 9.5H4.2L2.5 4.5V2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                  <span>0.8 mm</span>
+                </button>
               </div>
             </div>
 
             <label class="toggle-row toggle-compact pack-toggle">
               <input id="packPlatesCheck" type="checkbox" checked />
+              <svg class="opt-diagram" width="38" height="26" viewBox="0 0 38 26" fill="none" aria-hidden="true">
+                <rect x="1" y="1" width="36" height="24" rx="2.5" stroke="#475569" stroke-width="1.1" fill="#0b0e14"/>
+                <rect x="4" y="4" width="16" height="10" rx="1" fill="rgba(74,222,128,0.22)" stroke="#4ade80" stroke-width="1"/>
+                <rect x="22" y="4" width="12" height="18" rx="1" fill="rgba(56,189,248,0.2)" stroke="#38bdf8" stroke-width="1"/>
+                <rect x="4" y="16" width="16" height="6" rx="1" fill="rgba(245,158,11,0.2)" stroke="#f59e0b" stroke-width="1"/>
+              </svg>
               <div>
                 <strong class="label-with-tip">
                   <span>Pack multiple tiles per plate</span>
                   <button type="button" class="tip" aria-label="About multi-tile plate packing" data-tip="Automatically arranges multiple tiles onto the same Bambu .3mf build plate whenever they fit together cleanly, reducing total plate swaps.">?</button>
                 </strong>
+                <small>Fewer build plate swaps in .3mf</small>
               </div>
             </label>
           </div>
@@ -229,29 +342,57 @@
         <!-- Baseplate Style -->
         <section class="card">
           <div class="card-header">
-            <h2>3. Baseplate Style</h2>
+            <h2 class="card-title-icon">
+              <svg class="section-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 3 3 8 12 13 21 8 12 3"/><polyline points="3 13 12 18 21 13"/><polyline points="3 18 12 23 21 18"/></svg>
+              <span>3. Baseplate Style</span>
+            </h2>
           </div>
 
           <div class="style-options" role="radiogroup" aria-label="Baseplate Style">
             <label class="style-option">
               <input type="radio" name="meshStyle" value="fast" checked />
-              <div class="style-title-row">
-                <strong>Fast Lightweight <span class="pill-rec">Recommended</span></strong>
-                <button type="button" class="tip" aria-label="About Fast Lightweight" data-tip="4.25 mm tall with flat bottom and hollow divider channels — uses the least filament and prints fastest.">?</button>
+              <svg class="opt-diagram style-diagram" width="46" height="28" viewBox="0 0 46 28" fill="none" aria-hidden="true">
+                <rect x="1" y="1" width="44" height="26" rx="2.5" fill="#0b0e14" stroke="#2a2f3a" stroke-width="1"/>
+                <path d="M5 23V11l2.5-3h2v6l4 5h19l4-5V8h2l2.5 3v12H36l-3-4H13l-3 4H5z" fill="rgba(74,222,128,0.22)" stroke="#4ade80" stroke-width="1.2" stroke-linejoin="round"/>
+                <path d="M13 23l3-4h14l3 4" stroke="#64748b" stroke-width="1" stroke-dasharray="2 1.5"/>
+              </svg>
+              <div class="style-body">
+                <div class="style-title-row">
+                  <strong>Fast Lightweight <span class="pill-rec">Recommended</span></strong>
+                  <button type="button" class="tip" aria-label="About Fast Lightweight" data-tip="4.25 mm tall with flat bottom and hollow divider channels — uses the least filament and prints fastest.">?</button>
+                </div>
+                <small>4.25 mm · Hollow channels, least filament</small>
               </div>
             </label>
             <label class="style-option">
               <input type="radio" name="meshStyle" value="solid" />
-              <div class="style-title-row">
-                <strong>Standard Open Frame</strong>
-                <button type="button" class="tip" aria-label="About Standard Open Frame" data-tip="4.65 mm tall classic solid-wall Gridfinity profile with bottom entry chamfer.">?</button>
+              <svg class="opt-diagram style-diagram" width="46" height="28" viewBox="0 0 46 28" fill="none" aria-hidden="true">
+                <rect x="1" y="1" width="44" height="26" rx="2.5" fill="#0b0e14" stroke="#2a2f3a" stroke-width="1"/>
+                <path d="M5 23V11l2.5-3h3v15H5zm30.5 0V8h3L41 11v12h-5.5z" fill="rgba(148,163,184,0.28)" stroke="#94a3b8" stroke-width="1.2" stroke-linejoin="round"/>
+                <path d="M10.5 14l3.5 4h18l3.5-4" stroke="#94a3b8" stroke-width="1.1" stroke-linejoin="round"/>
+                <path d="M16 23h14" stroke="#475569" stroke-width="1" stroke-dasharray="2 2"/>
+              </svg>
+              <div class="style-body">
+                <div class="style-title-row">
+                  <strong>Standard Open Frame</strong>
+                  <button type="button" class="tip" aria-label="About Standard Open Frame" data-tip="4.65 mm tall classic solid-wall Gridfinity profile with bottom entry chamfer.">?</button>
+                </div>
+                <small>4.65 mm · Classic open bottom rim</small>
               </div>
             </label>
             <label class="style-option">
               <input type="radio" name="meshStyle" value="solid-floor" />
-              <div class="style-title-row">
-                <strong>Standard Solid Floor</strong>
-                <button type="button" class="tip" aria-label="About Standard Solid Floor" data-tip="5.85 mm tall — adds a 1.2 mm solid bottom sheet for maximum rigidity.">?</button>
+              <svg class="opt-diagram style-diagram" width="46" height="28" viewBox="0 0 46 28" fill="none" aria-hidden="true">
+                <rect x="1" y="1" width="44" height="26" rx="2.5" fill="#0b0e14" stroke="#2a2f3a" stroke-width="1"/>
+                <path d="M5 23V10l2.5-3h3v7l3.5 4h18l3.5-4V7h3L41 10v13H5z" fill="rgba(56,189,248,0.22)" stroke="#38bdf8" stroke-width="1.2" stroke-linejoin="round"/>
+                <line x1="6" y1="20.5" x2="40" y2="20.5" stroke="#38bdf8" stroke-width="0.9" stroke-opacity="0.55"/>
+              </svg>
+              <div class="style-body">
+                <div class="style-title-row">
+                  <strong>Standard Solid Floor</strong>
+                  <button type="button" class="tip" aria-label="About Standard Solid Floor" data-tip="5.85 mm tall — adds a 1.2 mm solid bottom sheet for maximum rigidity.">?</button>
+                </div>
+                <small>5.85 mm · Closed 1.2 mm bottom sheet</small>
               </div>
             </label>
           </div>
