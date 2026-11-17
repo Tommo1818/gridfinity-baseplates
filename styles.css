@@ -92,6 +92,69 @@ body {
   color: var(--muted);
 }
 
+.support-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.support-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.support-label svg {
+  color: #fb7185;
+  flex-shrink: 0;
+}
+
+.support-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--card-elev);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.08s;
+}
+
+.support-pill:active {
+  transform: translateY(1px);
+}
+
+.support-revolut svg {
+  color: #38bdf8;
+}
+
+.support-revolut:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #e0f2fe;
+}
+
+.support-paypal svg {
+  color: #60a5fa;
+}
+
+.support-paypal:hover {
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.5);
+  color: #dbeafe;
+}
+
 .topbar-actions,
 .header-btn-group {
   display: flex;
