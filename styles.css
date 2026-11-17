@@ -9,8 +9,25 @@
   --primary-hover: #00c44b;
   --primary-fg: #ffffff;
   --danger: #ef4444;
+  --stage-bg: #0b0e14;
   --radius: 12px;
   --font: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f1f5f9;
+  --card: #ffffff;
+  --card-elev: #f1f5f9;
+  --border: #cbd5e1;
+  --text: #0f172a;
+  --muted: #475569;
+  --primary: #009e3c;
+  --primary-hover: #008732;
+  --primary-fg: #ffffff;
+  --danger: #dc2626;
+  --stage-bg: #f8fafc;
+  color-scheme: light;
 }
 
 * {
@@ -35,10 +52,8 @@ body {
 /* Top bar */
 .topbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column;
+  gap: 14px;
   padding: 16px 20px;
   background: var(--card);
   border: 1px solid var(--border);
@@ -46,10 +61,36 @@ body {
   margin-bottom: 18px;
 }
 
+.topbar-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
 .brand {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+}
+
+.theme-switcher {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.theme-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  font-size: 0.74rem;
+}
+
+.theme-btn svg {
+  flex-shrink: 0;
 }
 
 .brand-mark {
@@ -61,6 +102,7 @@ body {
   background: rgba(0, 174, 66, 0.14);
   border: 1px solid rgba(0, 174, 66, 0.4);
   border-radius: 9px;
+  flex-shrink: 0;
 }
 
 .brand-mark span {
@@ -944,7 +986,7 @@ body {
 
 .view-stage {
   position: relative;
-  background: #0b0e14;
+  background: var(--stage-bg);
 }
 
 .layout-svg {
@@ -972,8 +1014,28 @@ body {
     gap: 12px;
   }
 
+  .topbar-main {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .theme-switcher {
+    order: -1;
+    align-self: flex-end;
+  }
+
+  .theme-btn {
+    padding: 3px 7px;
+    font-size: 0.7rem;
+    gap: 4px;
+  }
+
   .brand {
     align-items: flex-start;
+  }
+
+  .topbar h1 {
+    font-size: 1.12rem;
   }
 
   .topbar-actions {
@@ -1411,6 +1473,109 @@ body {
 
 .footer-stats-sep {
   opacity: 0.45;
+}
+
+/* Light Theme Refinements */
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .topbar,
+:root[data-theme="light"] .batch-bar {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+:root[data-theme="light"] .btn-outline:hover:not(:disabled),
+:root[data-theme="light"] .btn-mini:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+:root[data-theme="light"] .seg-btn.active {
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="light"] .seg-btn.rim-card:hover {
+  border-color: #94a3b8;
+}
+
+:root[data-theme="light"] .support-revolut svg {
+  color: #0284c7;
+}
+
+:root[data-theme="light"] .support-revolut:hover {
+  background: rgba(2, 132, 199, 0.1);
+  border-color: rgba(2, 132, 199, 0.45);
+  color: #0369a1;
+}
+
+:root[data-theme="light"] .support-paypal svg {
+  color: #2563eb;
+}
+
+:root[data-theme="light"] .support-paypal:hover {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.45);
+  color: #1d4ed8;
+}
+
+:root[data-theme="light"] .section-icon {
+  color: #16a34a;
+}
+
+:root[data-theme="light"] .badge,
+:root[data-theme="light"] .pill-rec {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  border-color: rgba(22, 163, 74, 0.3);
+}
+
+:root[data-theme="light"] .kpi-summary-bar {
+  background: #f8fafc;
+}
+
+:root[data-theme="light"] .summary-chip {
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .rot-pill,
+:root[data-theme="light"] .ikea-series-tag {
+  background: rgba(2, 132, 199, 0.1);
+  border-color: rgba(2, 132, 199, 0.3);
+  color: #0369a1;
+}
+
+:root[data-theme="light"] .ikea-dropdown {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.15);
+}
+
+:root[data-theme="light"] .ikea-dropdown::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+:root[data-theme="light"] .ikea-option:hover,
+:root[data-theme="light"] .ikea-option.highlighted {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+:root[data-theme="light"] .ikea-option-dims,
+:root[data-theme="light"] .ikea-selected-top {
+  color: #15803d;
+}
+
+:root[data-theme="light"] .error-banner {
+  background: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
+}
+
+:root[data-theme="light"] .footer-stats {
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .opt-diagram {
+  background: #0f172a;
+  border-radius: 5px;
 }
 
 .hidden {

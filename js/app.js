@@ -544,6 +544,17 @@ function render2DMap(plan) {
   const vbH = dd + margin * 2;
   svg.setAttribute('viewBox', `${-margin} ${-margin} ${vbW} ${vbH}`);
 
+  const isLight = typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light';
+  const gridStroke = isLight ? '#e2e8f0' : '#1b2230';
+  const drawerFill = isLight ? '#ffffff' : '#0f141d';
+  const drawerStroke = isLight ? '#64748b' : '#475569';
+  const pocketFill = isLight ? '#f1f5f9' : '#0b0e14';
+  const pillFill = isLight ? '#ffffff' : '#0b0e14';
+  const pillTitleColor = isLight ? '#0f172a' : '#f8fafc';
+  const pillSubColor = isLight ? '#475569' : '#9ca3af';
+  const dimLabelPrimary = isLight ? '#334155' : '#cbd5e1';
+  const dimLabelSecondary = isLight ? '#64748b' : '#94a3b8';
+
   // Subtle background grid
   const defs = svgEl('defs');
   const pattern = svgEl('pattern', {
@@ -556,7 +567,7 @@ function render2DMap(plan) {
     svgEl('path', {
       d: 'M 42 0 L 0 0 0 42',
       fill: 'none',
-      stroke: '#1b2230',
+      stroke: gridStroke,
       'stroke-width': Math.max(0.5, dw / 500),
     })
   );
@@ -572,8 +583,8 @@ function render2DMap(plan) {
       y: 0,
       width: dw,
       height: dd,
-      fill: '#0f141d',
-      stroke: '#475569',
+      fill: drawerFill,
+      stroke: drawerStroke,
       'stroke-width': 1.5 * strokeScale,
       'stroke-dasharray': `${5 * strokeScale} ${4 * strokeScale}`,
       rx: Math.max(2 * strokeScale, plan.cornerRadiusMm || 0),
@@ -652,8 +663,8 @@ function render2DMap(plan) {
             y: py,
             width: cw - 4.3,
             height: cd - 4.3,
-            fill: '#0b0e14',
-            'fill-opacity': 0.55,
+            fill: pocketFill,
+            'fill-opacity': isLight ? 0.72 : 0.55,
             stroke: color,
             'stroke-opacity': cw < 30 || cd < 30 ? 0.72 : 0.5,
             'stroke-dasharray': cw < 30 || cd < 30 ? `${2 * strokeScale} ${1.5 * strokeScale}` : 'none',
@@ -674,8 +685,8 @@ function render2DMap(plan) {
             y: py,
             width: pw,
             height: ph,
-            fill: '#0b0e14',
-            'fill-opacity': 0.55,
+            fill: pocketFill,
+            'fill-opacity': isLight ? 0.72 : 0.55,
             stroke: color,
             'stroke-opacity': 0.45,
             'stroke-width': 0.6 * strokeScale,
@@ -818,8 +829,8 @@ function render2DMap(plan) {
           width: pillW,
           height: pillH,
           rx: 4 * strokeScale,
-          fill: '#0b0e14',
-          'fill-opacity': 0.88,
+          fill: pillFill,
+          'fill-opacity': isLight ? 0.94 : 0.88,
           stroke: color,
           'stroke-opacity': 0.65,
           'stroke-width': 0.8 * strokeScale,
@@ -835,7 +846,7 @@ function render2DMap(plan) {
             y: centerY - clampedFont * 0.22,
             'text-anchor': 'middle',
             'dominant-baseline': 'central',
-            fill: '#f8fafc',
+            fill: pillTitleColor,
             'font-size': titleFont,
             'font-weight': '700',
             'font-family': 'Inter, system-ui, sans-serif',
@@ -852,7 +863,7 @@ function render2DMap(plan) {
             y: centerY + clampedFont * 0.76,
             'text-anchor': 'middle',
             'dominant-baseline': 'central',
-            fill: '#9ca3af',
+            fill: pillSubColor,
             'font-size': clampedFont * 0.66,
             'font-weight': '600',
             'font-family': 'Inter, system-ui, sans-serif',
@@ -886,7 +897,7 @@ function render2DMap(plan) {
         x: dw / 2,
         y: -14 * strokeScale,
         'text-anchor': 'middle',
-        fill: '#cbd5e1',
+        fill: dimLabelPrimary,
         'font-size': labelFont,
         'font-weight': '600',
         'font-family': 'Inter, system-ui, sans-serif',
@@ -902,7 +913,7 @@ function render2DMap(plan) {
         x: dw / 2,
         y: dd + 18 * strokeScale,
         'text-anchor': 'middle',
-        fill: '#94a3b8',
+        fill: dimLabelSecondary,
         'font-size': labelFont * 0.9,
         'font-weight': '600',
         'font-family': 'Inter, system-ui, sans-serif',
@@ -918,7 +929,7 @@ function render2DMap(plan) {
         x: -16 * strokeScale,
         y: dd / 2,
         'text-anchor': 'middle',
-        fill: '#cbd5e1',
+        fill: dimLabelPrimary,
         'font-size': labelFont,
         'font-weight': '600',
         'font-family': 'Inter, system-ui, sans-serif',
@@ -1993,6 +2004,61 @@ function bindEvents() {
   });
 }
 
+const THEME_STORAGE_KEY = 'gridfinity_theme_v1';
+
+function initThemeSwitcher() {
+  const btns = document.querySelectorAll('[data-theme-mode]');
+  if (!btns.length) return;
+
+  const mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+
+  const applyTheme = (mode, persist = false) => {
+    const validMode = mode === 'light' || mode === 'dark' || mode === 'auto' ? mode : 'auto';
+    if (persist) {
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, validMode);
+      } catch {}
+    }
+    const isLight = validMode === 'light' || (validMode === 'auto' && Boolean(mql && mql.matches));
+    document.documentElement.dataset.themeMode = validMode;
+    document.documentElement.dataset.theme = isLight ? 'light' : 'dark';
+
+    btns.forEach((b) => {
+      const active = b.dataset.themeMode === validMode;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+
+    if (state.plan && state.plan.ok) {
+      render2DMap(state.plan);
+    }
+    if (state.viewMode !== '2d') {
+      viewer.render();
+    }
+  };
+
+  let initialMode = 'auto';
+  try {
+    initialMode = localStorage.getItem(THEME_STORAGE_KEY) || 'auto';
+  } catch {}
+  applyTheme(initialMode, false);
+
+  btns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyTheme(btn.dataset.themeMode, true);
+    });
+  });
+
+  if (mql && mql.addEventListener) {
+    mql.addEventListener('change', () => {
+      if ((document.documentElement.dataset.themeMode || 'auto') === 'auto') {
+        applyTheme('auto', false);
+      }
+    });
+  }
+}
+
+initThemeSwitcher();
 initPresets();
 restoreSavedState();
 bindEvents();

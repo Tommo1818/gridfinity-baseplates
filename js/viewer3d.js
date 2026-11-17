@@ -440,7 +440,12 @@ export class Viewer3D {
     if (!this.supported) return;
     const gl = this.gl;
 
-    gl.clearColor(0.06, 0.08, 0.11, 1.0);
+    const isLight = typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light';
+    if (isLight) {
+      gl.clearColor(0.95, 0.96, 0.98, 1.0);
+    } else {
+      gl.clearColor(0.06, 0.08, 0.11, 1.0);
+    }
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
