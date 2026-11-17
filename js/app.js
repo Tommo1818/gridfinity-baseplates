@@ -122,6 +122,10 @@ const els = {
   download3mfSecondary: document.getElementById('download3mfSecondary'),
   downloadAllBtn: document.getElementById('downloadAllBtn'),
   downloadAllSecondary: document.getElementById('downloadAllSecondary'),
+  visitCountValue: document.getElementById('visitCountValue'),
+  visitCountLabel: document.getElementById('visitCountLabel'),
+  downloadCountValue: document.getElementById('downloadCountValue'),
+  downloadCountLabel: document.getElementById('downloadCountLabel'),
 };
 
 const viewer = new Viewer3D(els.glCanvas);
@@ -1369,6 +1373,72 @@ function syncBinPaletteUI() {
   });
 }
 
+const GOATCOUNTER_BASE = 'https://tommo1818.goatcounter.com';
+const GOATCOUNTER_VISIT_PATH = '/simple-gridfinity-generator';
+const GOATCOUNTER_DOWNLOAD_PATH = '/download';
+
+let footerVisitCount = null;
+let footerDownloadCount = null;
+
+function renderFooterCounters() {
+  if (els.visitCountValue && els.visitCountLabel) {
+    if (footerVisitCount === null) {
+      els.visitCountValue.textContent = '—';
+      els.visitCountLabel.textContent = 'visits';
+    } else {
+      els.visitCountValue.textContent = footerVisitCount.toLocaleString();
+      els.visitCountLabel.textContent = footerVisitCount === 1 ? 'visit' : 'visits';
+    }
+  }
+  if (els.downloadCountValue && els.downloadCountLabel) {
+    if (footerDownloadCount === null) {
+      els.downloadCountValue.textContent = '—';
+      els.downloadCountLabel.textContent = 'downloads';
+    } else {
+      els.downloadCountValue.textContent = footerDownloadCount.toLocaleString();
+      els.downloadCountLabel.textContent = footerDownloadCount === 1 ? 'download' : 'downloads';
+    }
+  }
+}
+
+async function fetchGoatCounterValue(path) {
+  try {
+    const url = `${GOATCOUNTER_BASE}/counter/${encodeURIComponent(path)}.json`;
+    const res = await fetch(url);
+    if (res.status === 404) return 0;
+    if (!res.ok) return null;
+    const data = await res.json();
+    const digits = String(data?.count ?? '0').replace(/[^\d]/g, '');
+    return digits ? Number.parseInt(digits, 10) : 0;
+  } catch {
+    return null;
+  }
+}
+
+async function initFooterCounters() {
+  const [visits, downloads] = await Promise.all([
+    fetchGoatCounterValue(GOATCOUNTER_VISIT_PATH),
+    fetchGoatCounterValue(GOATCOUNTER_DOWNLOAD_PATH),
+  ]);
+  footerVisitCount = visits;
+  footerDownloadCount = downloads;
+  renderFooterCounters();
+}
+
+function trackDownloadHit(filename) {
+  if (window.goatcounter && typeof window.goatcounter.count === 'function') {
+    window.goatcounter.count({
+      path: GOATCOUNTER_DOWNLOAD_PATH,
+      title: filename,
+      no_session: true,
+    });
+  }
+  if (footerDownloadCount !== null) {
+    footerDownloadCount += 1;
+    renderFooterCounters();
+  }
+}
+
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1378,6 +1448,7 @@ function triggerDownload(blob, filename) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
+  trackDownloadHit(filename);
 }
 
 // Wire floating tooltips & events
@@ -1922,3 +1993,4 @@ restoreSavedState();
 bindEvents();
 recomputeAndRender(true);
 renderBatchBar();
+initFooterCounters();
