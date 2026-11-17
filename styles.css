@@ -1105,6 +1105,15 @@ body {
   color: var(--text);
 }
 
+.app-footer {
+  margin-top: 20px;
+  padding: 12px 4px 4px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
 .hidden {
   display: none !important;
 }
