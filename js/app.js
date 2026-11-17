@@ -213,7 +213,12 @@ function syncAllInputsFromState() {
     r.checked = r.value === state.meshStyle;
   });
 
-  if (state.cornerRadiusMm > 0 || state.interlocking) {
+  if (
+    state.cornerRadiusMm > 0 ||
+    state.interlocking ||
+    state.alignX !== 'center' ||
+    state.alignY !== 'center'
+  ) {
     const det = document.querySelector('.more-options');
     if (det) det.open = true;
   }
@@ -443,11 +448,11 @@ function renderKpis(plan) {
       ? ` + half strip${plan.hasHalfX && plan.hasHalfY ? 's' : ''}`
       : '';
   els.kpiGrid.textContent = `${plan.cols} × ${plan.rows} units`;
-  els.kpiCells.textContent = `${plan.totalCells} cells${halfNote} (${plan.gridWidthMm} × ${plan.gridDepthMm} mm)`;
+  els.kpiCells.textContent = `(${plan.totalCells} cells${halfNote})`;
 
   const plateCount = getPlateCountForPlan(plan, state.modelMeshes, state.packMultiple);
   els.kpiTiles.textContent = `${plan.tiles.length} ${plan.tiles.length === 1 ? 'tile' : 'tiles'} (${plateCount} ${plateCount === 1 ? 'plate' : 'plates'})`;
-  els.kpiUnique.textContent = `${plan.models.length} unique STL${plan.models.length === 1 ? '' : 's'} · ${state.packMultiple ? 'packed .3mf' : '1 per plate'}`;
+  els.kpiUnique.textContent = `· ${plan.models.length} STL${plan.models.length === 1 ? '' : 's'}`;
 
   els.kpiSize.textContent = `${plan.totalWidthMm} × ${plan.totalDepthMm} mm`;
   if (plan.fillMargins && (plan.leftoverX > 0.05 || plan.leftoverY > 0.05)) {

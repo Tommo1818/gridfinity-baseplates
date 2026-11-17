@@ -304,12 +304,25 @@ body {
 
 .opt-explain-row {
   display: flex;
-  align-items: flex-end;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
 }
 
-.opt-diagram-lg {
-  margin-bottom: 3px;
+.opt-explain-row .field-compact {
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.opt-explain-row .field-compact input {
+  width: 76px;
+  padding: 5px 8px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .style-body {
@@ -588,11 +601,18 @@ body {
   margin-bottom: 10px;
 }
 
+.field-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.9fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--muted);
 }
 
@@ -603,8 +623,8 @@ body {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 0.92rem;
+  padding: 7px 9px;
+  font-size: 0.9rem;
   font-family: inherit;
   outline: none;
   transition: border-color 0.15s;
@@ -738,51 +758,43 @@ body {
   font-size: 0.88rem;
 }
 
-/* KPI Strip */
-.kpi-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+/* Compact Layout Summary Bar */
+.kpi-summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: rgba(255, 255, 255, 0.015);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+  line-height: 1.3;
 }
 
-@media (max-width: 1180px) {
-  .kpi-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 720px) {
-  .kpi-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.kpi-card {
-  background: var(--card);
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-}
-
-.kpi-label {
-  display: block;
-  font-size: 0.74rem;
-  color: var(--muted);
-  margin-bottom: 3px;
-}
-
-.kpi-card strong {
-  display: block;
-  font-size: 0.98rem;
-  font-weight: 700;
+  border-radius: 6px;
   white-space: nowrap;
 }
 
-.kpi-card small {
-  display: block;
-  font-size: 0.75rem;
+.summary-chip strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.summary-sub,
+.summary-muted {
+  font-size: 0.73rem;
   color: var(--muted);
-  margin-top: 2px;
+}
+
+.summary-sep {
+  display: none;
 }
 
 /* Preview Card */
@@ -796,14 +808,14 @@ body {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
 }
 
 .view-tabs {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
 
@@ -811,9 +823,9 @@ body {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--muted);
-  padding: 6px 12px;
+  padding: 5px 11px;
   border-radius: 7px;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -885,6 +897,90 @@ body {
   height: 410px;
   touch-action: none;
   cursor: grab;
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  .topbar {
+    padding: 13px 14px;
+    gap: 12px;
+  }
+
+  .brand {
+    align-items: flex-start;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .topbar-actions #download3mfBtn {
+    grid-column: 1 / -1;
+  }
+
+  .topbar-actions .btn:not(#download3mfBtn) {
+    padding: 7px 6px;
+    font-size: 0.75rem;
+    gap: 4px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  .card-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .header-btn-group {
+    width: 100%;
+  }
+
+  .header-btn-group .btn {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+
+  .kpi-summary-bar {
+    padding: 9px 12px;
+    gap: 4px 8px;
+    font-size: 0.75rem;
+  }
+
+  .preview-toolbar {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .view-tabs {
+    gap: 4px;
+  }
+
+  .tab-btn {
+    padding: 5px 8px;
+    font-size: 0.73rem;
+  }
+
+  .layout-svg,
+  .gl-canvas {
+    height: 310px;
+  }
+
+  .model-actions {
+    width: 100%;
+  }
+
+  .model-actions .btn {
+    flex: 1;
+  }
 }
 
 .gl-canvas:active {
