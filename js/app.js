@@ -235,7 +235,10 @@ function applyConfig(cfg) {
   if (['grid', 'half', 'solid', 'none'].includes(cfg.m)) state.marginFill = cfg.m;
   if (['left', 'center', 'right'].includes(cfg.ax)) state.alignX = cfg.ax;
   if (['back', 'center', 'front'].includes(cfg.ay)) state.alignY = cfg.ay;
-  if (Number.isFinite(+cfg.cr) && +cfg.cr >= 0) state.cornerRadiusMm = Math.min(50, +cfg.cr);
+  if (Number.isFinite(+cfg.cr) && +cfg.cr >= 0) state.cornerRadiusMm = Math.min(150, +cfg.cr);
+  if (state.cornerRadiusMm > 0 && state.alignX !== 'center' && state.alignY !== 'center') {
+    state.alignX = 'center';
+  }
   if (cfg.it !== undefined) state.interlocking = Boolean(+cfg.it);
   state.selectedIkeaId = typeof cfg.ik === 'string' && getIkeaDrawerById(cfg.ik) ? cfg.ik : null;
   if (typeof cfg.p === 'string' && getPresetById(cfg.p)) state.presetId = cfg.p;
@@ -699,14 +702,31 @@ function render2DMap(plan) {
       const cutT = tile.spec.padT >= MIN_GRID_RIM_PAD;
       const cutB = tile.spec.padB >= MIN_GRID_RIM_PAD;
 
+      const rBLc = tile.spec.rBL || 0;
+      const rBRc = tile.spec.rBR || 0;
+      const rTRc = tile.spec.rTR || 0;
+      const rTLc = tile.spec.rTL || 0;
+
+      const yCutL_B = rBLc > 0.05 ? Math.max(0, rBLc - tile.spec.padB) : 0;
+      const yCutL_T = gridD - (rTLc > 0.05 ? Math.max(0, rTLc - tile.spec.padT) : 0);
+      const yCutR_B = rBRc > 0.05 ? Math.max(0, rBRc - tile.spec.padB) : 0;
+      const yCutR_T = gridD - (rTRc > 0.05 ? Math.max(0, rTRc - tile.spec.padT) : 0);
+      const xCutB_L = rBLc > 0.05 ? Math.max(0, rBLc - tile.spec.padL) : 0;
+      const xCutB_R = gridW - (rBRc > 0.05 ? Math.max(0, rBRc - tile.spec.padR) : 0);
+      const xCutT_L = rTLc > 0.05 ? Math.max(0, rTLc - tile.spec.padL) : 0;
+      const xCutT_R = gridW - (rTRc > 0.05 ? Math.max(0, rTRc - tile.spec.padR) : 0);
+
       if (cutL) {
         const px = tx + RIM_OUTER_WALL;
         const pw = tile.spec.padL - RIM_OUTER_WALL - RIM_INNER_COLLAR;
         for (let cy = 0; cy < rowDepths.length; cy++) {
+          const yA = rowOff[cy];
+          const yB = rowOff[cy + 1];
+          if (yA < yCutL_B - 1e-6 || yB > yCutL_T + 1e-6) continue;
           const cd = rowDepths[cy];
           const ribT = cy === rowDepths.length - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
           const ribB = cy === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
-          const cellTopY = gridOriginBottomY - rowOff[cy] - cd;
+          const cellTopY = gridOriginBottomY - yB;
           drawRimPocket(px, cellTopY + ribT, pw, cd - ribT - ribB);
         }
       }
@@ -714,10 +734,13 @@ function render2DMap(plan) {
         const px = gridOriginX + gridW + RIM_INNER_COLLAR;
         const pw = tile.spec.padR - RIM_OUTER_WALL - RIM_INNER_COLLAR;
         for (let cy = 0; cy < rowDepths.length; cy++) {
+          const yA = rowOff[cy];
+          const yB = rowOff[cy + 1];
+          if (yA < yCutR_B - 1e-6 || yB > yCutR_T + 1e-6) continue;
           const cd = rowDepths[cy];
           const ribT = cy === rowDepths.length - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
           const ribB = cy === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
-          const cellTopY = gridOriginBottomY - rowOff[cy] - cd;
+          const cellTopY = gridOriginBottomY - yB;
           drawRimPocket(px, cellTopY + ribT, pw, cd - ribT - ribB);
         }
       }
@@ -725,23 +748,29 @@ function render2DMap(plan) {
         const py = ty + RIM_OUTER_WALL;
         const ph = tile.spec.padT - RIM_OUTER_WALL - RIM_INNER_COLLAR;
         for (let cx = 0; cx < colWidths.length; cx++) {
+          const xA = colOff[cx];
+          const xB = colOff[cx + 1];
+          if (xA < xCutT_L - 1e-6 || xB > xCutT_R + 1e-6) continue;
           const cw = colWidths[cx];
           const ribL = cx === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
           const ribR = cx === colWidths.length - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
-          drawRimPocket(gridOriginX + colOff[cx] + ribL, py, cw - ribL - ribR, ph);
+          drawRimPocket(gridOriginX + xA + ribL, py, cw - ribL - ribR, ph);
         }
       }
       if (cutB) {
         const py = gridOriginBottomY + RIM_INNER_COLLAR;
         const ph = tile.spec.padB - RIM_OUTER_WALL - RIM_INNER_COLLAR;
         for (let cx = 0; cx < colWidths.length; cx++) {
+          const xA = colOff[cx];
+          const xB = colOff[cx + 1];
+          if (xA < xCutB_L - 1e-6 || xB > xCutB_R + 1e-6) continue;
           const cw = colWidths[cx];
           const ribL = cx === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
           const ribR = cx === colWidths.length - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
-          drawRimPocket(gridOriginX + colOff[cx] + ribL, py, cw - ribL - ribR, ph);
+          drawRimPocket(gridOriginX + xA + ribL, py, cw - ribL - ribR, ph);
         }
       }
-      if (cutL && cutT) {
+      if (cutL && cutT && rTLc <= 0.05) {
         drawRimPocket(
           tx + RIM_OUTER_WALL,
           ty + RIM_OUTER_WALL,
@@ -749,7 +778,7 @@ function render2DMap(plan) {
           tile.spec.padT - RIM_OUTER_WALL - RIM_INNER_COLLAR
         );
       }
-      if (cutR && cutT) {
+      if (cutR && cutT && rTRc <= 0.05) {
         drawRimPocket(
           gridOriginX + gridW + RIM_INNER_COLLAR,
           ty + RIM_OUTER_WALL,
@@ -757,7 +786,7 @@ function render2DMap(plan) {
           tile.spec.padT - RIM_OUTER_WALL - RIM_INNER_COLLAR
         );
       }
-      if (cutL && cutB) {
+      if (cutL && cutB && rBLc <= 0.05) {
         drawRimPocket(
           tx + RIM_OUTER_WALL,
           gridOriginBottomY + RIM_INNER_COLLAR,
@@ -765,7 +794,7 @@ function render2DMap(plan) {
           tile.spec.padB - RIM_OUTER_WALL - RIM_INNER_COLLAR
         );
       }
-      if (cutR && cutB) {
+      if (cutR && cutB && rBRc <= 0.05) {
         drawRimPocket(
           gridOriginX + gridW + RIM_INNER_COLLAR,
           gridOriginBottomY + RIM_INNER_COLLAR,
@@ -1594,6 +1623,9 @@ function initIkeaPicker() {
     state.drawerWidthMm = item.widthMm;
     state.drawerDepthMm = item.depthMm;
     state.cornerRadiusMm = item.cornerRadiusMm || 0;
+    if (state.cornerRadiusMm > 0 && state.alignX !== 'center' && state.alignY !== 'center') {
+      state.alignX = 'center';
+    }
     els.ikeaSearchInput.value = '';
     updateClearBtn();
     closeDropdown();
@@ -1820,6 +1852,12 @@ function bindEvents() {
       const next = btn.dataset.alignX;
       if (next === state.alignX) return;
       state.alignX = next;
+      if (next !== 'center' && state.cornerRadiusMm > 0 && state.alignY !== 'center') {
+        state.alignY = 'center';
+        document.querySelectorAll('[data-align-y]').forEach((b) => {
+          b.classList.toggle('active', b.dataset.alignY === 'center');
+        });
+      }
       document.querySelectorAll('[data-align-x]').forEach((b) => b.classList.toggle('active', b === btn));
       recomputeAndRender(true);
     });
@@ -1830,6 +1868,12 @@ function bindEvents() {
       const next = btn.dataset.alignY;
       if (next === state.alignY) return;
       state.alignY = next;
+      if (next !== 'center' && state.cornerRadiusMm > 0 && state.alignX !== 'center') {
+        state.alignX = 'center';
+        document.querySelectorAll('[data-align-x]').forEach((b) => {
+          b.classList.toggle('active', b.dataset.alignX === 'center');
+        });
+      }
       document.querySelectorAll('[data-align-y]').forEach((b) => b.classList.toggle('active', b === btn));
       recomputeAndRender(true);
     });
@@ -1856,12 +1900,18 @@ function bindEvents() {
 
   els.cornerRadiusInput.addEventListener('input', () => {
     const r = parseFloat(els.cornerRadiusInput.value);
-    state.cornerRadiusMm = Number.isFinite(r) && r >= 0 ? Math.min(50, r) : 0;
+    state.cornerRadiusMm = Number.isFinite(r) && r >= 0 ? Math.min(150, r) : 0;
+    if (state.cornerRadiusMm > 0 && state.alignX !== 'center' && state.alignY !== 'center') {
+      state.alignX = 'center';
+      document.querySelectorAll('[data-align-x]').forEach((b) => {
+        b.classList.toggle('active', b.dataset.alignX === 'center');
+      });
+    }
     if (state.selectedIkeaId) {
       state.selectedIkeaId = null;
       syncIkeaSelectedBanner();
     }
-    recomputeAndRender(false);
+    recomputeAndRender(true);
   });
 
   els.interlockingCheck.addEventListener('change', () => {

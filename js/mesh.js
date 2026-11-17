@@ -172,121 +172,300 @@ function emitCutoutPocket(tc, x0, x1, y0, y1, zBot, zTop, solidBottom) {
   }
 }
 
-function fanConvexCornerPatch(tc, ring, hub, zTop, solidBottom) {
+function dedupLocalPts(pts, eps = 1e-6) {
+  const out = [];
+  for (const p of pts) {
+    if (out.length > 0) {
+      const prev = out[out.length - 1];
+      if (Math.hypot(p[0] - prev[0], p[1] - prev[1]) < eps) continue;
+    }
+    out.push(p);
+  }
+  if (out.length > 1) {
+    const first = out[0];
+    const last = out[out.length - 1];
+    if (Math.hypot(first[0] - last[0], first[1] - last[1]) < eps) out.pop();
+  }
+  return out;
+}
+
+function fanLocalPoly(tc, toWorld, localPts, zTop, solidBottom) {
+  const ring = dedupLocalPts(localPts);
+  if (ring.length < 3) return;
+
+  // Signed area in local (u, v); skip zero-area degenerate slivers
+  let area2 = 0;
+  let cx = 0;
+  let cy = 0;
   for (let k = 0; k < ring.length; k++) {
-    const p = ring[k];
-    const q = ring[(k + 1) % ring.length];
+    const a = ring[k];
+    const b = ring[(k + 1) % ring.length];
+    area2 += a[0] * b[1] - b[0] * a[1];
+    cx += a[0];
+    cy += a[1];
+  }
+  if (Math.abs(area2) < 1e-7) return;
+
+  const hubWorld = toWorld(cx / ring.length, cy / ring.length);
+  const worldRing = ring.map(([u, v]) => toWorld(u, v));
+
+  for (let k = 0; k < worldRing.length; k++) {
+    const p = worldRing[k];
+    const q = worldRing[(k + 1) % worldRing.length];
     if (Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-6) continue;
-    tc.tri([hub[0], hub[1], zTop], [p[0], p[1], zTop], [q[0], q[1], zTop]);
-    if (!solidBottom) tc.tri([hub[0], hub[1], 0], [q[0], q[1], 0], [p[0], p[1], 0]);
+    tc.tri([hubWorld[0], hubWorld[1], zTop], [p[0], p[1], zTop], [q[0], q[1], zTop]);
+    if (!solidBottom) tc.tri([hubWorld[0], hubWorld[1], 0], [q[0], q[1], 0], [p[0], p[1], 0]);
   }
 }
 
 /**
- * Emit a rounded corner patch (on zTop, optional z=0, and return the outer arc points CCW around the tile perimeter).
+ * Emit a corner rim patch (possibly rounded with radius `rReq > padU` or `rReq > padV`, or with `padV === 0`),
+ * together with any clipped end cells up to `(splitV, gridSplitV)` and `(splitU, gridSplitU)`,
+ * in a local orientation-preserving `(u, v)` frame whose origin `(0, 0)` is the grid corner.
+ *
+ * Returns the ordered outer perimeter vertices in world coordinates (CCW around the tile).
  */
-function emitRoundedCornerPatch(tc, cornerType, bounds, xBreaks, yBreaks, radius, zTop, solidBottom) {
-  const { xMin, xMax, yMin, yMax } = bounds;
+function emitGeneralCornerPatch(
+  tc,
+  {
+    toWorld,
+    padU,
+    padV,
+    rReq,
+    cutU,
+    cutV,
+    hasMidU,
+    hasMidV,
+    splitV,
+    gridSplitV,
+    splitU,
+    gridSplitU,
+    uInnerBreaks,
+    vInnerBreaks,
+    zTop,
+    zCutBot,
+    solidBottom,
+  }
+) {
+  const uMin = -padU;
+  const vMin = -padV;
+  const rMaxGeo = padU + padV + Math.sqrt(2 * padU * padV);
+  const r = rReq > 0.05 ? Math.min(rReq, rMaxGeo) : 0;
+
+  const uRimInToOut = cutU ? [0, -RIM_INNER_COLLAR, uMin + RIM_OUTER_WALL, uMin] : [0, uMin];
+  const vRimOutToIn = cutV ? [vMin, vMin + RIM_OUTER_WALL, -RIM_INNER_COLLAR, 0] : [vMin, 0];
+
+  // Fast exact path for square unrounded corner with no adjacent clipped rim cells
+  if (r <= 0.05 && padU > 0 && padV > 0 && gridSplitU <= 1e-6 && gridSplitV <= 1e-6) {
+    const uBreaks = cutU ? [uMin, uMin + RIM_OUTER_WALL, -RIM_INNER_COLLAR, 0] : [uMin, 0];
+    const vBreaks = cutV ? [vMin, vMin + RIM_OUTER_WALL, -RIM_INNER_COLLAR, 0] : [vMin, 0];
+
+    for (let i = 0; i < uBreaks.length - 1; i++) {
+      for (let j = 0; j < vBreaks.length - 1; j++) {
+        if (cutU && cutV && i === 1 && j === 1) {
+          const p0 = toWorld(uBreaks[1], vBreaks[1]);
+          const p1 = toWorld(uBreaks[2], vBreaks[2]);
+          emitCutoutPocket(
+            tc,
+            Math.min(p0[0], p1[0]),
+            Math.max(p0[0], p1[0]),
+            Math.min(p0[1], p1[1]),
+            Math.max(p0[1], p1[1]),
+            zCutBot,
+            zTop,
+            solidBottom
+          );
+        } else {
+          const a = toWorld(uBreaks[i], vBreaks[j]);
+          const b = toWorld(uBreaks[i + 1], vBreaks[j]);
+          const c = toWorld(uBreaks[i + 1], vBreaks[j + 1]);
+          const d = toWorld(uBreaks[i], vBreaks[j + 1]);
+          tc.quad([a[0], a[1], zTop], [b[0], b[1], zTop], [c[0], c[1], zTop], [d[0], d[1], zTop]);
+          if (!solidBottom) {
+            tc.quad([d[0], d[1], 0], [c[0], c[1], 0], [b[0], b[1], 0], [a[0], a[1], 0]);
+          }
+        }
+      }
+    }
+
+    const perim = [];
+    for (let j = vBreaks.length - 1; j >= 0; j--) perim.push(toWorld(uMin, vBreaks[j]));
+    for (let i = 1; i < uBreaks.length; i++) perim.push(toWorld(uBreaks[i], vMin));
+    return perim;
+  }
+
+  // Interior inner-edge vertices (excluding endpoints 0 and gridSplit)
+  const vStrictInner = vInnerBreaks.filter((v) => v > 1e-6 && v < gridSplitV - 1e-6);
+  const uStrictInner = uInnerBreaks.filter((u) => u > 1e-6 && u < gridSplitU - 1e-6);
+
+  // Exact seam vertices along U-rim junction (v = gridSplitV) and V-rim junction (u = gridSplitU)
+  const uSeamAt = (vVal) =>
+    hasMidU ? uRimInToOut.map((u) => [u, vVal]) : [[0, vVal], [uMin, vVal]];
+  const vSeamAt = (uVal) =>
+    hasMidV ? vRimOutToIn.map((v) => [uVal, v]) : [[uVal, vMin], [uVal, 0]];
+
+  // Unrounded corner that still absorbs clipped rim cells (or single-side pad boundary)
+  if (r <= 0.05) {
+    if (padU > 0 && gridSplitV > 1e-6) {
+      fanLocalPoly(
+        tc,
+        toWorld,
+        [...uSeamAt(gridSplitV), [uMin, 0], [0, 0], ...vStrictInner.map((v) => [0, v])],
+        zTop,
+        solidBottom
+      );
+    }
+    if (padU > 0 && padV > 0) {
+      const topSeam = hasMidU && gridSplitV <= 1e-6 ? uSeamAt(0) : [[0, 0], [uMin, 0]];
+      const rightSeam = hasMidV && gridSplitU <= 1e-6 ? vSeamAt(0) : [[0, vMin], [0, 0]];
+      fanLocalPoly(tc, toWorld, [...topSeam, [uMin, vMin], ...rightSeam], zTop, solidBottom);
+    }
+    if (padV > 0 && gridSplitU > 1e-6) {
+      const uRev = [...uStrictInner].reverse();
+      fanLocalPoly(
+        tc,
+        toWorld,
+        [[0, vMin], ...vSeamAt(gridSplitU), ...uRev.map((u) => [u, 0]), [0, 0]],
+        zTop,
+        solidBottom
+      );
+    }
+    const perimLocal = [];
+    if (padU > 0) {
+      if (hasMidU && padV <= 1e-6 && gridSplitV <= 1e-6) {
+        for (const p of uSeamAt(0).reverse()) perimLocal.push(p);
+      } else {
+        perimLocal.push([uMin, splitV]);
+      }
+    }
+    if (padU > 0 && padV > 0) perimLocal.push([uMin, vMin]);
+    else if (padU > 0 && !(hasMidU && gridSplitV <= 1e-6)) perimLocal.push([uMin, 0], [0, 0]);
+
+    if (padV > 0) {
+      if (hasMidV && padU <= 1e-6 && gridSplitU <= 1e-6) {
+        for (const p of [...vSeamAt(0)].reverse()) perimLocal.push(p);
+      } else {
+        if (padU <= 1e-6) perimLocal.push([0, 0], [0, vMin]);
+        perimLocal.push([splitU, vMin]);
+      }
+    }
+    return dedupLocalPts(perimLocal).map(([u, v]) => toWorld(u, v));
+  }
+
+  // General rounded corner (r > 0.05, padU > 0 || padV > 0)
+  const cu = uMin + r;
+  const cv = vMin + r;
+  const arcAngles = [];
   const arcPts = [];
-
-  if (cornerType === 'BL') {
-    const cx = xMin + radius;
-    const cy = yMin + radius;
-    for (let s = 0; s <= ARC_SEGMENTS; s++) {
-      const a = Math.PI + (s / ARC_SEGMENTS) * (Math.PI / 2);
-      arcPts.push([cx + radius * Math.cos(a), cy + radius * Math.sin(a)]);
-    }
-    const perim = [];
-    for (let j = yBreaks.length - 1; j >= 1; j--) {
-      if (yBreaks[j] > yMin + radius + 1e-6) perim.push([xMin, yBreaks[j]]);
-    }
-    for (const p of arcPts) perim.push(p);
-    for (let i = 1; i < xBreaks.length; i++) {
-      if (xBreaks[i] > xMin + radius + 1e-6) perim.push([xBreaks[i], yMin]);
-    }
-    const ring = [...perim];
-    for (let j = 1; j < yBreaks.length; j++) ring.push([0, yBreaks[j]]);
-    for (let i = xBreaks.length - 2; i >= 1; i--) ring.push([xBreaks[i], 0]);
-
-    const midArc = arcPts[ARC_SEGMENTS / 2];
-    const hub = [(0 + midArc[0]) / 2, (0 + midArc[1]) / 2];
-    fanConvexCornerPatch(tc, ring, hub, zTop, solidBottom);
-    return perim;
-  }
-
-  if (cornerType === 'BR') {
-    const cx = xMax - radius;
-    const cy = yMin + radius;
-    for (let s = 0; s <= ARC_SEGMENTS; s++) {
-      const a = -Math.PI / 2 + (s / ARC_SEGMENTS) * (Math.PI / 2);
-      arcPts.push([cx + radius * Math.cos(a), cy + radius * Math.sin(a)]);
-    }
-    const perim = [];
-    for (let i = 0; i < xBreaks.length - 1; i++) {
-      if (xBreaks[i] < xMax - radius - 1e-6) perim.push([xBreaks[i], yMin]);
-    }
-    for (const p of arcPts) perim.push(p);
-    for (let j = 1; j < yBreaks.length; j++) {
-      if (yBreaks[j] > yMin + radius + 1e-6) perim.push([xMax, yBreaks[j]]);
-    }
-    const ring = [...perim];
-    for (let i = xBreaks.length - 2; i >= 0; i--) ring.push([xBreaks[i], 0]);
-    for (let j = yBreaks.length - 2; j >= 1; j--) ring.push([xBreaks[0], yBreaks[j]]);
-
-    const midArc = arcPts[ARC_SEGMENTS / 2];
-    const hub = [(xBreaks[0] + midArc[0]) / 2, (0 + midArc[1]) / 2];
-    fanConvexCornerPatch(tc, ring, hub, zTop, solidBottom);
-    return perim;
-  }
-
-  if (cornerType === 'TR') {
-    const cx = xMax - radius;
-    const cy = yMax - radius;
-    for (let s = 0; s <= ARC_SEGMENTS; s++) {
-      const a = (s / ARC_SEGMENTS) * (Math.PI / 2);
-      arcPts.push([cx + radius * Math.cos(a), cy + radius * Math.sin(a)]);
-    }
-    const perim = [];
-    for (let j = 0; j < yBreaks.length - 1; j++) {
-      if (yBreaks[j] < yMax - radius - 1e-6) perim.push([xMax, yBreaks[j]]);
-    }
-    for (const p of arcPts) perim.push(p);
-    for (let i = xBreaks.length - 2; i >= 0; i--) {
-      if (xBreaks[i] < xMax - radius - 1e-6) perim.push([xBreaks[i], yMax]);
-    }
-    const ring = [...perim];
-    for (let j = yBreaks.length - 2; j >= 0; j--) ring.push([xBreaks[0], yBreaks[j]]);
-    for (let i = 1; i < xBreaks.length - 1; i++) ring.push([xBreaks[i], yBreaks[0]]);
-
-    const midArc = arcPts[ARC_SEGMENTS / 2];
-    const hub = [(xBreaks[0] + midArc[0]) / 2, (yBreaks[0] + midArc[1]) / 2];
-    fanConvexCornerPatch(tc, ring, hub, zTop, solidBottom);
-    return perim;
-  }
-
-  // 'TL'
-  const cx = xMin + radius;
-  const cy = yMax - radius;
   for (let s = 0; s <= ARC_SEGMENTS; s++) {
-    const a = Math.PI / 2 + (s / ARC_SEGMENTS) * (Math.PI / 2);
-    arcPts.push([cx + radius * Math.cos(a), cy + radius * Math.sin(a)]);
+    const ang = Math.PI + (s / ARC_SEGMENTS) * (Math.PI / 2);
+    arcAngles.push(ang);
+    arcPts.push([cu + r * Math.cos(ang), cv + r * Math.sin(ang)]);
   }
-  const perim = [];
-  for (let i = xBreaks.length - 1; i >= 1; i--) {
-    if (xBreaks[i] > xMin + radius + 1e-6) perim.push([xBreaks[i], yMax]);
-  }
-  for (const p of arcPts) perim.push(p);
-  for (let j = yBreaks.length - 2; j >= 0; j--) {
-    if (yBreaks[j] < yMax - radius - 1e-6) perim.push([xMin, yBreaks[j]]);
-  }
-  const ring = [...perim];
-  for (let i = 1; i < xBreaks.length; i++) ring.push([xBreaks[i], yBreaks[0]]);
-  for (let j = 1; j < yBreaks.length - 1; j++) ring.push([0, yBreaks[j]]);
 
-  const midArc = arcPts[ARC_SEGMENTS / 2];
-  const hub = [(0 + midArc[0]) / 2, (yBreaks[0] + midArc[1]) / 2];
-  fanConvexCornerPatch(tc, ring, hub, zTop, solidBottom);
-  return perim;
+  // Case A: Only padU > 0 (padV === 0)
+  if (padV <= 1e-6) {
+    const outer = [];
+    if (splitV > vMin + r + 1e-6) outer.push([uMin, splitV]);
+    outer.push(...arcPts, [0, 0]);
+    const topPts = hasMidU ? uSeamAt(gridSplitV) : [[0, gridSplitV]];
+    fanLocalPoly(
+      tc,
+      toWorld,
+      [...topPts, ...outer, ...vStrictInner.map((v) => [0, v])],
+      zTop,
+      solidBottom
+    );
+    return dedupLocalPts(outer).map(([u, v]) => toWorld(u, v));
+  }
+
+  // Case B: Only padV > 0 (padU === 0)
+  if (padU <= 1e-6) {
+    const outer = [[0, 0], ...arcPts];
+    if (splitU > uMin + r + 1e-6) outer.push([splitU, vMin]);
+    const uRev = [...uStrictInner].reverse();
+    const rightPts = hasMidV ? vSeamAt(gridSplitU) : [[gridSplitU, 0]];
+    fanLocalPoly(
+      tc,
+      toWorld,
+      [...outer, ...rightPts, ...uRev.map((u) => [u, 0])],
+      zTop,
+      solidBottom
+    );
+    return dedupLocalPts(outer).map(([u, v]) => toWorld(u, v));
+  }
+
+  // Case C: Both padU > 0 and padV > 0 -> split cleanly into <= 3 convex pieces along v = 0 and u = 0
+  let anglePV = cv > 1e-6 ? Math.PI + Math.asin(Math.min(1, cv / r)) : Math.PI;
+  let anglePU = cu > 1e-6 ? 1.5 * Math.PI - Math.asin(Math.min(1, cu / r)) : 1.5 * Math.PI;
+  if (anglePU < anglePV) {
+    const mid = (anglePV + anglePU) / 2;
+    anglePV = mid;
+    anglePU = mid;
+  }
+
+  let pv = cv > 1e-6 ? [Math.min(0, cu - Math.sqrt(Math.max(0, r * r - cv * cv))), 0] : [uMin, 0];
+  let pu = cu > 1e-6 ? [0, Math.min(0, cv - Math.sqrt(Math.max(0, r * r - cu * cu)))] : [0, vMin];
+  if (Math.hypot(pv[0], pv[1]) < 1e-5 && Math.hypot(pu[0], pu[1]) < 1e-5) {
+    pv = [0, 0];
+    pu = [0, 0];
+  }
+
+  const part1Outer = [];
+  if (splitV > vMin + r + 1e-6) part1Outer.push([uMin, splitV]);
+  for (let s = 0; s < arcPts.length; s++) {
+    if (arcAngles[s] < anglePV - 1e-6) part1Outer.push(arcPts[s]);
+  }
+  part1Outer.push(pv);
+
+  const part2Arc = [];
+  for (let s = 0; s < arcPts.length; s++) {
+    if (arcAngles[s] > anglePV + 1e-6 && arcAngles[s] < anglePU - 1e-6) {
+      part2Arc.push(arcPts[s]);
+    }
+  }
+
+  const part3Outer = [pu];
+  for (let s = 0; s < arcPts.length; s++) {
+    if (arcAngles[s] > anglePU + 1e-6) part3Outer.push(arcPts[s]);
+  }
+  if (splitU > uMin + r + 1e-6) part3Outer.push([splitU, vMin]);
+
+  // Piece 1: Upper-left arm (u <= 0, v >= 0)
+  const hasPiece1 = gridSplitV > 1e-6 || splitV > 1e-6;
+  if (hasPiece1) {
+    const topPts = hasMidU ? uSeamAt(gridSplitV) : [[0, gridSplitV]];
+    fanLocalPoly(
+      tc,
+      toWorld,
+      [...topPts, ...part1Outer, [0, 0], ...vStrictInner.map((v) => [0, v])],
+      zTop,
+      solidBottom
+    );
+  }
+
+  // Piece 2: Corner quadrant (u <= 0, v <= 0)
+  const hasPiece3 = gridSplitU > 1e-6 || splitU > 1e-6;
+  if (Math.hypot(pv[0] - pu[0], pv[1] - pu[1]) > 1e-5) {
+    const p2Start = !hasPiece1 && hasMidU && cv <= 1e-6 ? uSeamAt(0) : [pv];
+    const p2End = !hasPiece3 && hasMidV && cu <= 1e-6 ? vSeamAt(0) : [pu, [0, 0]];
+    fanLocalPoly(tc, toWorld, [...p2Start, ...part2Arc, ...p2End], zTop, solidBottom);
+  }
+
+  // Piece 3: Lower-right arm (u >= 0, v <= 0)
+  if (hasPiece3) {
+    const uRev = [...uStrictInner].reverse();
+    const rightPts = hasMidV ? vSeamAt(gridSplitU) : [[gridSplitU, 0]];
+    fanLocalPoly(
+      tc,
+      toWorld,
+      [...part3Outer, ...rightPts, ...uRev.map((u) => [u, 0]), [0, 0]],
+      zTop,
+      solidBottom
+    );
+  }
+
+  return dedupLocalPts([...part1Outer, ...part2Arc, ...part3Outer]).map(([u, v]) => toWorld(u, v));
 }
 
 /**
@@ -418,16 +597,117 @@ function addBorderRimsAndWalls(
   const ySegs = buildRimCellSegmentsFromSizes(rowDepths);
   const xSegs = buildRimCellSegmentsFromSizes(colWidths);
 
-  // Left rim: [xMin, 0] x [0, gridD]
-  if (padL > 0) {
+  const clampCornerR = (r, padU, padV, uMax, vMax, padOppU, rOppU, padOppV, rOppV) => {
+    if ((padU <= 1e-6 && padV <= 1e-6) || r <= 0.05) return r;
+    let eff = Math.min(r, padU + padV + Math.sqrt(2 * padU * padV));
+    if (padOppU <= 1e-6 && rOppU <= 0.05) eff = Math.min(eff, padU + uMax);
+    if (padOppV <= 1e-6 && rOppV <= 0.05) eff = Math.min(eff, padV + vMax);
+    return eff;
+  };
+
+  const rBL_eff = clampCornerR(rBL, padL, padB, gridW, gridD, padR, rBR, padT, rTL);
+  const rBR_eff = clampCornerR(rBR, padB, padR, gridD, gridW, padT, rTR, padL, rBL);
+  const rTR_eff = clampCornerR(rTR, padR, padT, gridW, gridD, padL, rTL, padB, rBR);
+  const rTL_eff = clampCornerR(rTL, padT, padL, gridD, gridW, padB, rBL, padR, rTR);
+
+  const computeSideSplits = (segs, span, cutStart, cutEnd, rStart, rEnd, innerBreaks) => {
+    const midSegs = [];
+    for (const s of segs) {
+      if (s.a >= cutStart - 1e-6 && s.b <= cutEnd + 1e-6) midSegs.push(s);
+    }
+    if (midSegs.length > 0) {
+      return {
+        midSegs,
+        wallStart: midSegs[0].a,
+        gridStart: midSegs[0].a,
+        wallEnd: midSegs[midSegs.length - 1].b,
+        gridEnd: midSegs[midSegs.length - 1].b,
+      };
+    }
+    if (rStart <= 0.05 && rEnd <= 0.05) {
+      return { midSegs: segs, wallStart: 0, gridStart: 0, wallEnd: span, gridEnd: span };
+    }
+    if (rStart > 0.05 && rEnd <= 0.05) {
+      return { midSegs: [], wallStart: span, gridStart: span, wallEnd: span, gridEnd: span };
+    }
+    if (rEnd > 0.05 && rStart <= 0.05) {
+      return { midSegs: [], wallStart: 0, gridStart: 0, wallEnd: 0, gridEnd: 0 };
+    }
+    const cs = Math.min(span, Math.max(0, cutStart));
+    const ce = Math.max(cs, Math.min(span, cutEnd));
+    const wallMid = (cs + ce) / 2;
+    const gridMid = innerBreaks[Math.floor(innerBreaks.length / 2)];
+    return { midSegs: [], wallStart: wallMid, gridStart: gridMid, wallEnd: wallMid, gridEnd: gridMid };
+  };
+
+  const splitL =
+    padL > 0
+      ? computeSideSplits(
+          ySegs,
+          gridD,
+          rBL_eff > 0.05 ? Math.max(0, yMin + rBL_eff) : 0,
+          rTL_eff > 0.05 ? Math.min(gridD, yMax - rTL_eff) : gridD,
+          rBL_eff,
+          rTL_eff,
+          ysGrid
+        )
+      : { midSegs: [], wallStart: 0, gridStart: 0, wallEnd: gridD, gridEnd: gridD };
+
+  const splitR =
+    padR > 0
+      ? computeSideSplits(
+          ySegs,
+          gridD,
+          rBR_eff > 0.05 ? Math.max(0, yMin + rBR_eff) : 0,
+          rTR_eff > 0.05 ? Math.min(gridD, yMax - rTR_eff) : gridD,
+          rBR_eff,
+          rTR_eff,
+          ysGrid
+        )
+      : { midSegs: [], wallStart: 0, gridStart: 0, wallEnd: gridD, gridEnd: gridD };
+
+  const splitB =
+    padB > 0
+      ? computeSideSplits(
+          xSegs,
+          gridW,
+          rBL_eff > 0.05 ? Math.max(0, xMin + rBL_eff) : 0,
+          rBR_eff > 0.05 ? Math.min(gridW, xMax - rBR_eff) : gridW,
+          rBL_eff,
+          rBR_eff,
+          xsGrid
+        )
+      : { midSegs: [], wallStart: 0, gridStart: 0, wallEnd: gridW, gridEnd: gridW };
+
+  const splitT =
+    padT > 0
+      ? computeSideSplits(
+          xSegs,
+          gridW,
+          rTL_eff > 0.05 ? Math.max(0, xMin + rTL_eff) : 0,
+          rTR_eff > 0.05 ? Math.min(gridW, xMax - rTR_eff) : gridW,
+          rTL_eff,
+          rTR_eff,
+          xsGrid
+        )
+      : { midSegs: [], wallStart: 0, gridStart: 0, wallEnd: gridW, gridEnd: gridW };
+
+  // Left rim: [xMin, 0] x [splitL.gridStart, splitL.gridEnd]
+  if (padL > 0 && splitL.midSegs.length > 0) {
     if (!cutL) {
-      for (let j = 0; j < ysGrid.length - 1; j++) {
-        emitTopAndOptionalBottomQuad(tc, xMin, 0, ysGrid[j], ysGrid[j + 1], zTop, solidBottom);
+      for (const s of splitL.midSegs) {
+        for (const [ya, yb] of [
+          [s.a, s.cellB],
+          [s.cellB, s.cellC],
+          [s.cellC, s.b],
+        ]) {
+          emitTopAndOptionalBottomQuad(tc, xMin, 0, ya, yb, zTop, solidBottom);
+        }
       }
     } else {
       const x1 = xMin + RIM_OUTER_WALL;
       const x2 = -RIM_INNER_COLLAR;
-      for (const s of ySegs) {
+      for (const s of splitL.midSegs) {
         emitTopAndOptionalBottomQuad(tc, xMin, x1, s.a, s.ribA, zTop, solidBottom);
         emitTopAndOptionalBottomQuad(tc, xMin, x1, s.ribA, s.ribB, zTop, solidBottom);
         emitTopAndOptionalBottomQuad(tc, xMin, x1, s.ribB, s.b, zTop, solidBottom);
@@ -446,16 +726,22 @@ function addBorderRimsAndWalls(
     }
   }
 
-  // Right rim: [gridW, xMax] x [0, gridD]
-  if (padR > 0) {
+  // Right rim: [gridW, xMax] x [splitR.gridStart, splitR.gridEnd]
+  if (padR > 0 && splitR.midSegs.length > 0) {
     if (!cutR) {
-      for (let j = 0; j < ysGrid.length - 1; j++) {
-        emitTopAndOptionalBottomQuad(tc, gridW, xMax, ysGrid[j], ysGrid[j + 1], zTop, solidBottom);
+      for (const s of splitR.midSegs) {
+        for (const [ya, yb] of [
+          [s.a, s.cellB],
+          [s.cellB, s.cellC],
+          [s.cellC, s.b],
+        ]) {
+          emitTopAndOptionalBottomQuad(tc, gridW, xMax, ya, yb, zTop, solidBottom);
+        }
       }
     } else {
       const x1 = gridW + RIM_INNER_COLLAR;
       const x2 = xMax - RIM_OUTER_WALL;
-      for (const s of ySegs) {
+      for (const s of splitR.midSegs) {
         emitTopAndOptionalBottomQuad(tc, x2, xMax, s.a, s.ribA, zTop, solidBottom);
         emitTopAndOptionalBottomQuad(tc, x2, xMax, s.ribA, s.ribB, zTop, solidBottom);
         emitTopAndOptionalBottomQuad(tc, x2, xMax, s.ribB, s.b, zTop, solidBottom);
@@ -474,16 +760,22 @@ function addBorderRimsAndWalls(
     }
   }
 
-  // Bottom rim: [0, gridW] x [yMin, 0]
-  if (padB > 0) {
+  // Bottom rim: [splitB.gridStart, splitB.gridEnd] x [yMin, 0]
+  if (padB > 0 && splitB.midSegs.length > 0) {
     if (!cutB) {
-      for (let i = 0; i < xsGrid.length - 1; i++) {
-        emitTopAndOptionalBottomQuad(tc, xsGrid[i], xsGrid[i + 1], yMin, 0, zTop, solidBottom);
+      for (const s of splitB.midSegs) {
+        for (const [xa, xb] of [
+          [s.a, s.cellB],
+          [s.cellB, s.cellC],
+          [s.cellC, s.b],
+        ]) {
+          emitTopAndOptionalBottomQuad(tc, xa, xb, yMin, 0, zTop, solidBottom);
+        }
       }
     } else {
       const y1 = yMin + RIM_OUTER_WALL;
       const y2 = -RIM_INNER_COLLAR;
-      for (const s of xSegs) {
+      for (const s of splitB.midSegs) {
         emitTopAndOptionalBottomQuad(tc, s.a, s.ribA, yMin, y1, zTop, solidBottom);
         emitTopAndOptionalBottomQuad(tc, s.ribA, s.ribB, yMin, y1, zTop, solidBottom);
         emitTopAndOptionalBottomQuad(tc, s.ribB, s.b, yMin, y1, zTop, solidBottom);
@@ -502,16 +794,22 @@ function addBorderRimsAndWalls(
     }
   }
 
-  // Top rim: [0, gridW] x [gridD, yMax]
-  if (padT > 0) {
+  // Top rim: [splitT.gridStart, splitT.gridEnd] x [gridD, yMax]
+  if (padT > 0 && splitT.midSegs.length > 0) {
     if (!cutT) {
-      for (let i = 0; i < xsGrid.length - 1; i++) {
-        emitTopAndOptionalBottomQuad(tc, xsGrid[i], xsGrid[i + 1], gridD, yMax, zTop, solidBottom);
+      for (const s of splitT.midSegs) {
+        for (const [xa, xb] of [
+          [s.a, s.cellB],
+          [s.cellB, s.cellC],
+          [s.cellC, s.b],
+        ]) {
+          emitTopAndOptionalBottomQuad(tc, xa, xb, gridD, yMax, zTop, solidBottom);
+        }
       }
     } else {
       const y1 = gridD + RIM_INNER_COLLAR;
       const y2 = yMax - RIM_OUTER_WALL;
-      for (const s of xSegs) {
+      for (const s of splitT.midSegs) {
         emitTopAndOptionalBottomQuad(tc, s.a, s.ribA, y2, yMax, zTop, solidBottom);
         emitTopAndOptionalBottomQuad(tc, s.ribA, s.ribB, y2, yMax, zTop, solidBottom);
         emitTopAndOptionalBottomQuad(tc, s.ribB, s.b, y2, yMax, zTop, solidBottom);
@@ -530,49 +828,115 @@ function addBorderRimsAndWalls(
     }
   }
 
-  // 4 Corner rim patches (with optional outer corner rounding)
-  const xBreaksL = cutL ? [xMin, xMin + RIM_OUTER_WALL, -RIM_INNER_COLLAR, 0] : [xMin, 0];
-  const xBreaksR = cutR ? [gridW, gridW + RIM_INNER_COLLAR, xMax - RIM_OUTER_WALL, xMax] : [gridW, xMax];
-  const yBreaksB = cutB ? [yMin, yMin + RIM_OUTER_WALL, -RIM_INNER_COLLAR, 0] : [yMin, 0];
-  const yBreaksT = cutT ? [gridD, gridD + RIM_INNER_COLLAR, yMax - RIM_OUTER_WALL, yMax] : [gridD, yMax];
+  // 4 Corner rim patches (+ any clipped adjacent rim ends)
+  const xsGridRev = [...xsGrid].reverse().map((x) => gridW - x);
+  const ysGridRev = [...ysGrid].reverse().map((y) => gridD - y);
 
-  const cornerBounds = { xMin, xMax, yMin, yMax };
-  const cornerArcPerims = { BL: null, BR: null, TR: null, TL: null };
+  const cornerPerims = { BL: null, BR: null, TR: null, TL: null };
 
-  const cornerConfigs = [
-    { key: 'BL', cond: padL > 0 && padB > 0, xs: xBreaksL, ys: yBreaksB, canCut: cutL && cutB, r: rBL },
-    { key: 'BR', cond: padR > 0 && padB > 0, xs: xBreaksR, ys: yBreaksB, canCut: cutR && cutB, r: rBR },
-    { key: 'TR', cond: padR > 0 && padT > 0, xs: xBreaksR, ys: yBreaksT, canCut: cutR && cutT, r: rTR },
-    { key: 'TL', cond: padL > 0 && padT > 0, xs: xBreaksL, ys: yBreaksT, canCut: cutL && cutT, r: rTL },
-  ];
-  for (const cc of cornerConfigs) {
-    if (!cc.cond) continue;
-    const effR = Math.min(cc.r, Math.abs(cc.xs[cc.xs.length - 1] - cc.xs[0]), Math.abs(cc.ys[cc.ys.length - 1] - cc.ys[0]));
-    if (effR > 0.05) {
-      cornerArcPerims[cc.key] = emitRoundedCornerPatch(tc, cc.key, cornerBounds, cc.xs, cc.ys, effR, zTop, solidBottom);
-    } else {
-      for (let i = 0; i < cc.xs.length - 1; i++) {
-        for (let j = 0; j < cc.ys.length - 1; j++) {
-          if (cc.canCut && i === 1 && j === 1) {
-            emitCutoutPocket(tc, cc.xs[1], cc.xs[2], cc.ys[1], cc.ys[2], zCutBot, zTop, solidBottom);
-          } else {
-            emitTopAndOptionalBottomQuad(tc, cc.xs[i], cc.xs[i + 1], cc.ys[j], cc.ys[j + 1], zTop, solidBottom);
-          }
-        }
-      }
-    }
+  if (padL > 0 || padB > 0) {
+    cornerPerims.BL = emitGeneralCornerPatch(tc, {
+      toWorld: (u, v) => [u, v],
+      padU: padL,
+      padV: padB,
+      rReq: rBL_eff,
+      cutU: cutL,
+      cutV: cutB,
+      hasMidU: splitL.midSegs.length > 0,
+      hasMidV: splitB.midSegs.length > 0,
+      splitV: splitL.wallStart,
+      gridSplitV: splitL.gridStart,
+      splitU: splitB.wallStart,
+      gridSplitU: splitB.gridStart,
+      uInnerBreaks: xsGrid,
+      vInnerBreaks: ysGrid,
+      zTop,
+      zCutBot,
+      solidBottom,
+    });
+  }
+
+  if (padB > 0 || padR > 0) {
+    cornerPerims.BR = emitGeneralCornerPatch(tc, {
+      toWorld: (u, v) => [gridW - v, u],
+      padU: padB,
+      padV: padR,
+      rReq: rBR_eff,
+      cutU: cutB,
+      cutV: cutR,
+      hasMidU: splitB.midSegs.length > 0,
+      hasMidV: splitR.midSegs.length > 0,
+      splitV: padB > 0 ? gridW - splitB.wallEnd : 0,
+      gridSplitV: padB > 0 ? gridW - splitB.gridEnd : 0,
+      splitU: splitR.wallStart,
+      gridSplitU: splitR.gridStart,
+      uInnerBreaks: ysGrid,
+      vInnerBreaks: xsGridRev,
+      zTop,
+      zCutBot,
+      solidBottom,
+    });
+  }
+
+  if (padR > 0 || padT > 0) {
+    cornerPerims.TR = emitGeneralCornerPatch(tc, {
+      toWorld: (u, v) => [gridW - u, gridD - v],
+      padU: padR,
+      padV: padT,
+      rReq: rTR_eff,
+      cutU: cutR,
+      cutV: cutT,
+      hasMidU: splitR.midSegs.length > 0,
+      hasMidV: splitT.midSegs.length > 0,
+      splitV: padR > 0 ? gridD - splitR.wallEnd : 0,
+      gridSplitV: padR > 0 ? gridD - splitR.gridEnd : 0,
+      splitU: padT > 0 ? gridW - splitT.wallEnd : 0,
+      gridSplitU: padT > 0 ? gridW - splitT.gridEnd : 0,
+      uInnerBreaks: xsGridRev,
+      vInnerBreaks: ysGridRev,
+      zTop,
+      zCutBot,
+      solidBottom,
+    });
+  }
+
+  if (padT > 0 || padL > 0) {
+    cornerPerims.TL = emitGeneralCornerPatch(tc, {
+      toWorld: (u, v) => [v, gridD - u],
+      padU: padT,
+      padV: padL,
+      rReq: rTL_eff,
+      cutU: cutT,
+      cutV: cutL,
+      hasMidU: splitT.midSegs.length > 0,
+      hasMidV: splitL.midSegs.length > 0,
+      splitV: splitT.wallStart,
+      gridSplitV: splitT.gridStart,
+      splitU: padL > 0 ? gridD - splitL.wallEnd : 0,
+      gridSplitU: padL > 0 ? gridD - splitL.gridEnd : 0,
+      uInnerBreaks: ysGridRev,
+      vInnerBreaks: xsGrid,
+      zTop,
+      zCutBot,
+      solidBottom,
+    });
   }
 
   // Build ordered outer perimeter edges around the entire tile in CCW order
-  const gridRimBreaks = (segs) => {
-    const pts = [0];
-    for (const s of segs) pts.push(s.ribA, s.ribB, s.b);
+  const sideOuterBreaks = (midSegs, isCut) => {
+    if (midSegs.length === 0) return [];
+    const pts = [midSegs[0].a];
+    for (const s of midSegs) {
+      if (isCut) pts.push(s.ribA, s.ribB, s.b);
+      else pts.push(s.cellB, s.cellC, s.b);
+    }
     return pts;
   };
-  const xsBotRim = cutB ? gridRimBreaks(xSegs) : xsGrid;
-  const xsTopRim = cutT ? gridRimBreaks(xSegs) : xsGrid;
-  const ysLeftRim = cutL ? gridRimBreaks(ySegs) : ysGrid;
-  const ysRightRim = cutR ? gridRimBreaks(ySegs) : ysGrid;
+
+  const xsBotRim = padB > 0 ? sideOuterBreaks(splitB.midSegs, cutB) : xsGrid;
+  const xsTopRim = padT > 0 ? sideOuterBreaks(splitT.midSegs, cutT) : xsGrid;
+  const ysLeftRim = padL > 0 ? sideOuterBreaks(splitL.midSegs, cutL) : ysGrid;
+  const ysRightRim = padR > 0 ? sideOuterBreaks(splitR.midSegs, cutR) : ysGrid;
 
   const perimVerts = [];
   const pushPt = (p) => {
@@ -618,19 +982,10 @@ function addBorderRimsAndWalls(
   const uArcTL = padL === 0 && padT === 0 ? unpaddedCornerArc('TL', rTL) : null;
 
   // 1. BL corner
-  if (cornerArcPerims.BL) {
-    for (const p of cornerArcPerims.BL) pushPt(p);
+  if (cornerPerims.BL) {
+    for (const p of cornerPerims.BL) pushPt(p);
   } else if (uArcBL) {
     for (const p of uArcBL) pushPt(p);
-  } else {
-    if (padL > 0 && padB > 0) {
-      for (let j = yBreaksB.length - 1; j >= 0; j--) pushPt([xMin, yBreaksB[j]]);
-      for (let i = 1; i < xBreaksL.length; i++) pushPt([xBreaksL[i], yMin]);
-    } else if (padL > 0) {
-      for (let i = 0; i < xBreaksL.length; i++) pushPt([xBreaksL[i], yMin]);
-    } else if (padB > 0) {
-      for (let j = yBreaksB.length - 1; j >= 0; j--) pushPt([xMin, yBreaksB[j]]);
-    }
   }
 
   // 2. Bottom edge [0..gridW] at yMin
@@ -641,19 +996,10 @@ function addBorderRimsAndWalls(
   }
 
   // 3. BR corner
-  if (cornerArcPerims.BR) {
-    for (const p of cornerArcPerims.BR) pushPt(p);
+  if (cornerPerims.BR) {
+    for (const p of cornerPerims.BR) pushPt(p);
   } else if (uArcBR) {
     for (const p of uArcBR) pushPt(p);
-  } else {
-    if (padR > 0 && padB > 0) {
-      for (let i = 1; i < xBreaksR.length; i++) pushPt([xBreaksR[i], yMin]);
-      for (let j = 1; j < yBreaksB.length; j++) pushPt([xMax, yBreaksB[j]]);
-    } else if (padR > 0) {
-      for (let i = 1; i < xBreaksR.length; i++) pushPt([xBreaksR[i], yMin]);
-    } else if (padB > 0) {
-      for (let j = 1; j < yBreaksB.length; j++) pushPt([xMax, yBreaksB[j]]);
-    }
   }
 
   // 4. Right edge [0..gridD] at xMax
@@ -664,19 +1010,10 @@ function addBorderRimsAndWalls(
   }
 
   // 5. TR corner
-  if (cornerArcPerims.TR) {
-    for (const p of cornerArcPerims.TR) pushPt(p);
+  if (cornerPerims.TR) {
+    for (const p of cornerPerims.TR) pushPt(p);
   } else if (uArcTR) {
     for (const p of uArcTR) pushPt(p);
-  } else {
-    if (padR > 0 && padT > 0) {
-      for (let j = 1; j < yBreaksT.length; j++) pushPt([xMax, yBreaksT[j]]);
-      for (let i = xBreaksR.length - 2; i >= 0; i--) pushPt([xBreaksR[i], yMax]);
-    } else if (padR > 0) {
-      for (let i = xBreaksR.length - 2; i >= 0; i--) pushPt([xBreaksR[i], yMax]);
-    } else if (padT > 0) {
-      for (let j = 1; j < yBreaksT.length; j++) pushPt([xMax, yBreaksT[j]]);
-    }
   }
 
   // 6. Top edge [gridW..0] at yMax
@@ -687,19 +1024,10 @@ function addBorderRimsAndWalls(
   }
 
   // 7. TL corner
-  if (cornerArcPerims.TL) {
-    for (const p of cornerArcPerims.TL) pushPt(p);
+  if (cornerPerims.TL) {
+    for (const p of cornerPerims.TL) pushPt(p);
   } else if (uArcTL) {
     for (const p of uArcTL) pushPt(p);
-  } else {
-    if (padL > 0 && padT > 0) {
-      for (let i = xBreaksL.length - 2; i >= 0; i--) pushPt([xBreaksL[i], yMax]);
-      for (let j = yBreaksT.length - 2; j >= 0; j--) pushPt([xMin, yBreaksT[j]]);
-    } else if (padL > 0) {
-      for (let i = xBreaksL.length - 2; i >= 0; i--) pushPt([xBreaksL[i], yMax]);
-    } else if (padT > 0) {
-      for (let j = yBreaksT.length - 2; j >= 0; j--) pushPt([xMin, yBreaksT[j]]);
-    }
   }
 
   // 8. Left edge [gridD..0] at xMin
@@ -724,16 +1052,21 @@ function addBorderRimsAndWalls(
     const len = Math.hypot(dx, dy);
     if (len < 10) return null; // Only straight cell mid-segments (>= 13 mm) carry tabs/slots
 
-    if (padB === 0 && Math.abs(pA[1] - yMin) < 1e-5 && Math.abs(pB[1] - yMin) < 1e-5 && dx > 0 && connB) {
+    const inXGrid =
+      pA[0] >= -1e-5 && pB[0] >= -1e-5 && pA[0] <= gridW + 1e-5 && pB[0] <= gridW + 1e-5;
+    const inYGrid =
+      pA[1] >= -1e-5 && pB[1] >= -1e-5 && pA[1] <= gridD + 1e-5 && pB[1] <= gridD + 1e-5;
+
+    if (padB === 0 && inXGrid && Math.abs(pA[1] - yMin) < 1e-5 && Math.abs(pB[1] - yMin) < 1e-5 && dx > 0 && connB) {
       return { kind: connB, outDir: [0, -1], tanDir: [1, 0], side: 'B' };
     }
-    if (padR === 0 && Math.abs(pA[0] - xMax) < 1e-5 && Math.abs(pB[0] - xMax) < 1e-5 && dy > 0 && connR) {
+    if (padR === 0 && inYGrid && Math.abs(pA[0] - xMax) < 1e-5 && Math.abs(pB[0] - xMax) < 1e-5 && dy > 0 && connR) {
       return { kind: connR, outDir: [1, 0], tanDir: [0, 1], side: 'R' };
     }
-    if (padT === 0 && Math.abs(pA[1] - yMax) < 1e-5 && Math.abs(pB[1] - yMax) < 1e-5 && dx < 0 && connT) {
+    if (padT === 0 && inXGrid && Math.abs(pA[1] - yMax) < 1e-5 && Math.abs(pB[1] - yMax) < 1e-5 && dx < 0 && connT) {
       return { kind: connT, outDir: [0, 1], tanDir: [-1, 0], side: 'T' };
     }
-    if (padL === 0 && Math.abs(pA[0] - xMin) < 1e-5 && Math.abs(pB[0] - xMin) < 1e-5 && dy < 0 && connL) {
+    if (padL === 0 && inYGrid && Math.abs(pA[0] - xMin) < 1e-5 && Math.abs(pB[0] - xMin) < 1e-5 && dy < 0 && connL) {
       return { kind: connL, outDir: [-1, 0], tanDir: [0, -1], side: 'L' };
     }
     return null;
@@ -983,29 +1316,37 @@ function buildStandardMesh(tc, spec, floorH, rimStyle) {
 
         // Bottom wings
         if (bR_r > 0.05) {
-          tc.tri([xC, yA, 0], ring0[0], [xD - bR_r, yA, 0]);
-          tc.tri([xD, yA + bR_r, 0], ring0[8], [xD, yB, 0]);
+          if (bR_r < 3.99) {
+            tc.tri([xC, yA, 0], ring0[0], [xD - bR_r, yA, 0]);
+            tc.tri([xD, yA + bR_r, 0], ring0[8], [xD, yB, 0]);
+          }
         } else {
           tc.tri([xC, yA, 0], ring0[0], [xD, yA, 0]);
           tc.tri([xD, yA, 0], ring0[8], [xD, yB, 0]);
         }
         if (tR_r > 0.05) {
-          tc.tri([xD, yC, 0], ring0[9], [xD, yD - tR_r, 0]);
-          tc.tri([xD - tR_r, yD, 0], ring0[17], [xC, yD, 0]);
+          if (tR_r < 3.99) {
+            tc.tri([xD, yC, 0], ring0[9], [xD, yD - tR_r, 0]);
+            tc.tri([xD - tR_r, yD, 0], ring0[17], [xC, yD, 0]);
+          }
         } else {
           tc.tri([xD, yC, 0], ring0[9], [xD, yD, 0]);
           tc.tri([xD, yD, 0], ring0[17], [xC, yD, 0]);
         }
         if (tL_r > 0.05) {
-          tc.tri([xB, yD, 0], ring0[18], [xA + tL_r, yD, 0]);
-          tc.tri([xA, yD - tL_r, 0], ring0[26], [xA, yC, 0]);
+          if (tL_r < 3.99) {
+            tc.tri([xB, yD, 0], ring0[18], [xA + tL_r, yD, 0]);
+            tc.tri([xA, yD - tL_r, 0], ring0[26], [xA, yC, 0]);
+          }
         } else {
           tc.tri([xB, yD, 0], ring0[18], [xA, yD, 0]);
           tc.tri([xA, yD, 0], ring0[26], [xA, yC, 0]);
         }
         if (bL_r > 0.05) {
-          tc.tri([xA, yB, 0], ring0[27], [xA, yA + bL_r, 0]);
-          tc.tri([xA + bL_r, yA, 0], ring0[35], [xB, yA, 0]);
+          if (bL_r < 3.99) {
+            tc.tri([xA, yB, 0], ring0[27], [xA, yA + bL_r, 0]);
+            tc.tri([xA + bL_r, yA, 0], ring0[35], [xB, yA, 0]);
+          }
         } else {
           tc.tri([xA, yB, 0], ring0[27], [xA, yA, 0]);
           tc.tri([xA, yA, 0], ring0[35], [xB, yA, 0]);

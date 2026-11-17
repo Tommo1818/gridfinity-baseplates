@@ -234,15 +234,89 @@ function canonicalizeForBed(spec, bedX, bedY) {
   };
 }
 
-function clampOuterCornerRadius(requestedR, padX, padY) {
-  if (requestedR <= 0) return 0;
-  if (padX > 0 && padY > 0) {
-    return roundRim(Math.min(requestedR, padX, padY));
+function cornerFitsRoundedRect(mX, mY, radius) {
+  if (radius <= 0.05) return true;
+  if (mX <= 1e-6 && mY <= 1e-6) {
+    return radius <= 4 + 1e-6;
   }
-  if (padX === 0 && padY === 0) {
+  const dx = Math.max(0, radius - mX);
+  const dy = Math.max(0, radius - mY);
+  return Math.hypot(dx, dy) <= radius + 1e-6;
+}
+
+function gridFitsRoundedEnvelope({ effW, effD, gridW, gridD, alignX, alignY, cornerRadiusMm }) {
+  if (cornerRadiusMm <= 0.05) return true;
+  const remX = Math.max(0, effW - gridW);
+  const remY = Math.max(0, effD - gridD);
+
+  const mL = alignX === 'left' ? 0 : alignX === 'right' ? remX : remX / 2;
+  const mR = alignX === 'left' ? remX : alignX === 'right' ? 0 : remX / 2;
+  const mB = alignY === 'front' ? 0 : alignY === 'back' ? remY : remY / 2;
+  const mT = alignY === 'front' ? remY : alignY === 'back' ? 0 : remY / 2;
+
+  return (
+    cornerFitsRoundedRect(mL, mB, cornerRadiusMm) &&
+    cornerFitsRoundedRect(mR, mB, cornerRadiusMm) &&
+    cornerFitsRoundedRect(mR, mT, cornerRadiusMm) &&
+    cornerFitsRoundedRect(mL, mT, cornerRadiusMm)
+  );
+}
+
+function findBestGridForRoundedSpace({ effW, effD, maxCols, maxRows, marginFill, alignX, alignY, cornerRadiusMm }) {
+  if (cornerRadiusMm <= 0.05) {
+    const remX0 = Math.max(0, effW - maxCols * GRIDFINITY_PITCH);
+    const remY0 = Math.max(0, effD - maxRows * GRIDFINITY_PITCH);
+    return {
+      cols: maxCols,
+      rows: maxRows,
+      hasHalfX: marginFill === 'half' && remX0 >= HALF_PITCH - 1e-6,
+      hasHalfY: marginFill === 'half' && remY0 >= HALF_PITCH - 1e-6,
+    };
+  }
+
+  let best = null;
+  const halfCombos =
+    marginFill === 'half'
+      ? [
+          [0, 0],
+          [1, 0],
+          [0, 1],
+          [1, 1],
+        ]
+      : [[0, 0]];
+
+  for (let c = maxCols; c >= 1; c--) {
+    for (let r = maxRows; r >= 1; r--) {
+      for (const [hx, hy] of halfCombos) {
+        const gridW = c * GRIDFINITY_PITCH + hx * HALF_PITCH;
+        const gridD = r * GRIDFINITY_PITCH + hy * HALF_PITCH;
+        if (gridW > effW + 1e-6 || gridD > effD + 1e-6) continue;
+        if (!gridFitsRoundedEnvelope({ effW, effD, gridW, gridD, alignX, alignY, cornerRadiusMm })) {
+          continue;
+        }
+        const fullCells = c * r;
+        const area = gridW * gridD;
+        const aspectDiff = Math.abs(c - r);
+        if (
+          !best ||
+          fullCells > best.fullCells ||
+          (fullCells === best.fullCells && area > best.area + 1e-4) ||
+          (fullCells === best.fullCells && Math.abs(area - best.area) <= 1e-4 && aspectDiff < best.aspectDiff)
+        ) {
+          best = { cols: c, rows: r, hasHalfX: hx === 1, hasHalfY: hy === 1, fullCells, area, aspectDiff };
+        }
+      }
+    }
+  }
+  return best;
+}
+
+function outerCornerRadiusForTile(requestedR, padX, padY) {
+  if (requestedR <= 0.05) return 0;
+  if (padX <= 1e-6 && padY <= 1e-6) {
     return roundRim(Math.min(requestedR, 4));
   }
-  return 0;
+  return roundRim(requestedR);
 }
 
 /**
@@ -266,31 +340,53 @@ export function planDrawerLayout({
   const effectiveMarginFill =
     typeof fillMargins === 'boolean' ? (fillMargins ? 'solid' : 'none') : marginFill;
   const hasMargins = effectiveMarginFill !== 'none';
-  const effAlignX = marginAlignment === 'corner' ? 'left' : alignX;
-  const effAlignY = marginAlignment === 'corner' ? 'front' : alignY;
+  let effAlignX = marginAlignment === 'corner' ? 'left' : alignX;
+  let effAlignY = marginAlignment === 'corner' ? 'front' : alignY;
   const effW = Math.max(0, drawerWidthMm - clearanceMm);
   const effD = Math.max(0, drawerDepthMm - clearanceMm);
 
-  const cols = Math.floor((effW + 1e-6) / GRIDFINITY_PITCH);
-  const rows = Math.floor((effD + 1e-6) / GRIDFINITY_PITCH);
+  const maxCols = Math.floor((effW + 1e-6) / GRIDFINITY_PITCH);
+  const maxRows = Math.floor((effD + 1e-6) / GRIDFINITY_PITCH);
 
-  if (cols < 1 || rows < 1) {
+  if (maxCols < 1 || maxRows < 1) {
     return {
       ok: false,
       error: `Drawer interior (${roundRim(effW)} × ${roundRim(effD)} mm after ${clearanceMm} mm clearance) is smaller than one 42 × 42 mm Gridfinity cell.`,
-      cols,
-      rows,
+      cols: maxCols,
+      rows: maxRows,
     };
   }
 
-  let remX = Math.max(0, effW - cols * GRIDFINITY_PITCH);
-  let remY = Math.max(0, effD - rows * GRIDFINITY_PITCH);
+  const effCornerR = cornerRadiusMm > 0 ? roundRim(Math.min(cornerRadiusMm, effW / 2, effD / 2)) : 0;
 
-  const hasHalfX = effectiveMarginFill === 'half' && remX >= HALF_PITCH - 1e-6;
-  const hasHalfY = effectiveMarginFill === 'half' && remY >= HALF_PITCH - 1e-6;
+  // With rounded drawer corners, edge-aligned grids center on the perpendicular axis so corners don't interfere
+  if (effCornerR > 0.05 && effAlignX !== 'center' && effAlignY !== 'center') {
+    effAlignX = 'center';
+  }
 
-  if (hasHalfX) remX = Math.max(0, remX - HALF_PITCH);
-  if (hasHalfY) remY = Math.max(0, remY - HALF_PITCH);
+  const fit = findBestGridForRoundedSpace({
+    effW,
+    effD,
+    maxCols,
+    maxRows,
+    marginFill: effectiveMarginFill,
+    alignX: effAlignX,
+    alignY: effAlignY,
+    cornerRadiusMm: effCornerR,
+  });
+
+  if (!fit) {
+    return {
+      ok: false,
+      error: `No Gridfinity grid fits inside ${roundRim(effW)} × ${roundRim(effD)} mm with a ${effCornerR} mm corner radius${effAlignX !== 'center' || effAlignY !== 'center' ? ' and edge alignment' : ''}. Reduce the corner radius or switch alignment to Center.`,
+      cols: 0,
+      rows: 0,
+    };
+  }
+
+  const { cols, rows, hasHalfX, hasHalfY } = fit;
+  const remX = Math.max(0, effW - cols * GRIDFINITY_PITCH - (hasHalfX ? HALF_PITCH : 0));
+  const remY = Math.max(0, effD - rows * GRIDFINITY_PITCH - (hasHalfY ? HALF_PITCH : 0));
 
   const allColWidths = new Array(cols).fill(GRIDFINITY_PITCH);
   if (hasHalfX) {
@@ -347,10 +443,31 @@ export function planDrawerLayout({
     else if (effAlignY === 'center') assemblyY = roundRim(halfClear + leftoverY / 2);
   }
 
-  const outerRBL = clampOuterCornerRadius(cornerRadiusMm, padL, padB);
-  const outerRBR = clampOuterCornerRadius(cornerRadiusMm, padR, padB);
-  const outerRTR = clampOuterCornerRadius(cornerRadiusMm, padR, padT);
-  const outerRTL = clampOuterCornerRadius(cornerRadiusMm, padL, padT);
+  const mL = hasMargins ? padL : roundRim(assemblyX - halfClear);
+  const mR = hasMargins ? padR : roundRim(leftoverX - mL);
+  const mB = hasMargins ? padB : roundRim(assemblyY - halfClear);
+  const mT = hasMargins ? padT : roundRim(leftoverY - mB);
+
+  const outerRBL = hasMargins
+    ? outerCornerRadiusForTile(effCornerR, padL, padB)
+    : mL <= 1e-6 && mB <= 1e-6
+      ? outerCornerRadiusForTile(effCornerR, 0, 0)
+      : 0;
+  const outerRBR = hasMargins
+    ? outerCornerRadiusForTile(effCornerR, padR, padB)
+    : mR <= 1e-6 && mB <= 1e-6
+      ? outerCornerRadiusForTile(effCornerR, 0, 0)
+      : 0;
+  const outerRTR = hasMargins
+    ? outerCornerRadiusForTile(effCornerR, padR, padT)
+    : mR <= 1e-6 && mT <= 1e-6
+      ? outerCornerRadiusForTile(effCornerR, 0, 0)
+      : 0;
+  const outerRTL = hasMargins
+    ? outerCornerRadiusForTile(effCornerR, padL, padT)
+    : mL <= 1e-6 && mT <= 1e-6
+      ? outerCornerRadiusForTile(effCornerR, 0, 0)
+      : 0;
 
   const tabOverhang = interlocking ? TAB_PROTRUSION_MM : 0;
   const bedOrientations = [

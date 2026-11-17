@@ -291,9 +291,9 @@
                 <label class="field field-compact">
                   <span class="label-with-tip">
                     <span>Outer Corner Radius (mm)</span>
-                    <button type="button" class="tip" aria-label="About corner radius" data-tip="Rounds the 4 outer corners of the assembled baseplate to clear curved drawer corners (e.g. IKEA MAXIMERA or kitchen drawers: 6–12 mm). Set 0 for sharp square corners.">?</button>
+                    <button type="button" class="tip" aria-label="About corner radius" data-tip="Rounds the 4 outer corners of the drawer space (e.g. IKEA MAXIMERA: 6–12 mm), then fits the largest Gridfinity grid inside that rounded footprint. Edge alignment (Front/Back or Left/Right) stays centered on the perpendicular axis so corner arcs never block the grid.">?</button>
                   </span>
-                  <input id="cornerRadiusInput" type="number" min="0" max="50" step="0.5" value="0" />
+                  <input id="cornerRadiusInput" type="number" min="0" max="150" step="0.5" value="0" />
                 </label>
               </div>
 
@@ -569,7 +569,7 @@
     </footer>
   </div>
 
-  <script type="module" src="js/app.js?v=11"></script>
+  <script type="module" src="js/app.js?v=12"></script>
   <script data-goatcounter="https://tommo1818.goatcounter.com/count"
           data-goatcounter-settings='{"path": "/gridfinity-baseplates"}'
           async src="https://gc.zgo.at/count.js"></script>

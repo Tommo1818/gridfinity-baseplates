@@ -364,25 +364,53 @@ export class Viewer3D {
       });
     }
 
-    // Drawer interior boundary box outline
+    // Drawer interior boundary box outline (supports rounded corners)
     const boxH = 24;
-    const pts = [
-      // Bottom rectangle
-      -dw, -dd, 0,  dw, -dd, 0,
-       dw, -dd, 0,  dw,  dd, 0,
-       dw,  dd, 0, -dw,  dd, 0,
-      -dw,  dd, 0, -dw, -dd, 0,
-      // Top rim
-      -dw, -dd, boxH,  dw, -dd, boxH,
-       dw, -dd, boxH,  dw,  dd, boxH,
-       dw,  dd, boxH, -dw,  dd, boxH,
-      -dw,  dd, boxH, -dw, -dd, boxH,
-      // Vertical posts
-      -dw, -dd, 0, -dw, -dd, boxH,
-       dw, -dd, 0,  dw, -dd, boxH,
-       dw,  dd, 0,  dw,  dd, boxH,
-      -dw,  dd, 0, -dw,  dd, boxH,
-    ];
+    const r = Math.min(Math.max(0, plan.cornerRadiusMm || 0), dw, dd);
+    const pts = [];
+    if (r <= 0.05) {
+      pts.push(
+        // Bottom rectangle
+        -dw, -dd, 0,  dw, -dd, 0,
+         dw, -dd, 0,  dw,  dd, 0,
+         dw,  dd, 0, -dw,  dd, 0,
+        -dw,  dd, 0, -dw, -dd, 0,
+        // Top rim
+        -dw, -dd, boxH,  dw, -dd, boxH,
+         dw, -dd, boxH,  dw,  dd, boxH,
+         dw,  dd, boxH, -dw,  dd, boxH,
+        -dw,  dd, boxH, -dw, -dd, boxH,
+        // Vertical posts
+        -dw, -dd, 0, -dw, -dd, boxH,
+         dw, -dd, 0,  dw, -dd, boxH,
+         dw,  dd, 0,  dw,  dd, boxH,
+        -dw,  dd, 0, -dw,  dd, boxH
+      );
+    } else {
+      const segs = 10;
+      const loop = [];
+      const corners = [
+        { cx: -dw + r, cy: -dd + r, a0: Math.PI },
+        { cx: dw - r, cy: -dd + r, a0: -Math.PI / 2 },
+        { cx: dw - r, cy: dd - r, a0: 0 },
+        { cx: -dw + r, cy: dd - r, a0: Math.PI / 2 },
+      ];
+      for (const c of corners) {
+        for (let s = 0; s <= segs; s++) {
+          const a = c.a0 + (s / segs) * (Math.PI / 2);
+          loop.push([c.cx + r * Math.cos(a), c.cy + r * Math.sin(a)]);
+        }
+        const mid = loop[loop.length - 1 - Math.floor(segs / 2)];
+        pts.push(mid[0], mid[1], 0, mid[0], mid[1], boxH);
+      }
+      for (let k = 0; k < loop.length; k++) {
+        const a = loop[k];
+        const b = loop[(k + 1) % loop.length];
+        if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-5) continue;
+        pts.push(a[0], a[1], 0, b[0], b[1], 0);
+        pts.push(a[0], a[1], boxH, b[0], b[1], boxH);
+      }
+    }
     this.addLineSegments(pts, [0.45, 0.52, 0.62, 0.7]);
 
     if (resetCam) {
