@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Simple Gridfinity Generator</title>
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=7" />
 </head>
 <body>
   <div class="app-shell">
@@ -62,6 +62,39 @@
               <button type="button" class="seg-btn" data-unit="cm">cm</button>
               <button type="button" class="seg-btn" data-unit="in">in</button>
             </div>
+          </div>
+
+          <div class="ikea-picker" id="ikeaPicker">
+            <div class="ikea-picker-label-row">
+              <span class="label-with-tip">
+                <span>IKEA Drawer Preset</span>
+                <button type="button" class="tip" aria-label="About IKEA drawer presets" data-tip="Search and pick common IKEA drawer interior floor sizes (ALEX, MAXIMERA, PAX/KOMPLEMENT, HELMER, MALM, KALLAX, etc.). IKEA revises models occasionally, so always verify your drawer's floor width and depth before printing.">?</button>
+              </span>
+              <span id="ikeaPresetCount" class="ikea-count-hint"></span>
+            </div>
+            <div class="ikea-search-anchor">
+              <div class="ikea-search-wrap">
+                <svg class="ikea-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                  id="ikeaSearchInput"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Search IKEA drawers (ALEX, PAX, MAXIMERA...)"
+                  aria-label="Search IKEA drawer sizes"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="ikeaDropdown"
+                  role="combobox"
+                />
+                <button id="ikeaClearBtn" class="ikea-icon-btn hidden" type="button" title="Clear search" aria-label="Clear IKEA search">×</button>
+                <button id="ikeaToggleBtn" class="ikea-icon-btn" type="button" title="Browse IKEA drawer sizes" aria-label="Toggle IKEA drawer list">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+              </div>
+              <div id="ikeaDropdown" class="ikea-dropdown hidden" role="listbox" aria-label="IKEA drawer sizes"></div>
+            </div>
+            <div id="ikeaSelectedBanner" class="ikea-selected-banner hidden"></div>
           </div>
 
           <div class="field-grid-2">
@@ -331,6 +364,6 @@
     </main>
   </div>
 
-  <script type="module" src="js/app.js?v=6"></script>
+  <script type="module" src="js/app.js?v=7"></script>
 </body>
 </html>

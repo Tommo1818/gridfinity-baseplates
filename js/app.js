@@ -1,4 +1,5 @@
 import { BAMBU_PRESETS, getPresetById } from './printers.js';
+import { IKEA_DRAWERS, getIkeaDrawerById, searchIkeaDrawers } from './ikea_drawers.js';
 import { GRIDFINITY_PITCH, planDrawerLayout } from './planner.js';
 import {
   generateTileMesh,
@@ -48,6 +49,7 @@ const state = {
   alignY: 'center', // 'back' | 'center' | 'front'
   cornerRadiusMm: 0,
   interlocking: false,
+  selectedIkeaId: null,
   presetId: 'a1-mini',
   bedWidthMm: 180,
   bedDepthMm: 180,
@@ -67,6 +69,13 @@ const state = {
 
 // DOM elements
 const els = {
+  ikeaPicker: document.getElementById('ikeaPicker'),
+  ikeaSearchInput: document.getElementById('ikeaSearchInput'),
+  ikeaClearBtn: document.getElementById('ikeaClearBtn'),
+  ikeaToggleBtn: document.getElementById('ikeaToggleBtn'),
+  ikeaDropdown: document.getElementById('ikeaDropdown'),
+  ikeaSelectedBanner: document.getElementById('ikeaSelectedBanner'),
+  ikeaPresetCount: document.getElementById('ikeaPresetCount'),
   drawerWidth: document.getElementById('drawerWidth'),
   drawerDepth: document.getElementById('drawerDepth'),
   clearanceInput: document.getElementById('clearanceInput'),
@@ -140,7 +149,7 @@ function getMeshOptions() {
 }
 
 function serializeConfig() {
-  return {
+  const cfg = {
     u: state.unit,
     w: state.drawerWidthMm,
     d: state.drawerDepthMm,
@@ -157,6 +166,8 @@ function serializeConfig() {
     pk: state.packMultiple ? 1 : 0,
     s: state.meshStyle,
   };
+  if (state.selectedIkeaId) cfg.ik = state.selectedIkeaId;
+  return cfg;
 }
 
 function syncAllInputsFromState() {
@@ -202,6 +213,8 @@ function syncAllInputsFromState() {
     const det = document.querySelector('.more-options');
     if (det) det.open = true;
   }
+
+  syncIkeaSelectedBanner();
 }
 
 function applyConfig(cfg) {
@@ -215,6 +228,7 @@ function applyConfig(cfg) {
   if (['back', 'center', 'front'].includes(cfg.ay)) state.alignY = cfg.ay;
   if (Number.isFinite(+cfg.cr) && +cfg.cr >= 0) state.cornerRadiusMm = Math.min(50, +cfg.cr);
   if (cfg.it !== undefined) state.interlocking = Boolean(+cfg.it);
+  state.selectedIkeaId = typeof cfg.ik === 'string' && getIkeaDrawerById(cfg.ik) ? cfg.ik : null;
   if (typeof cfg.p === 'string' && getPresetById(cfg.p)) state.presetId = cfg.p;
   if (Number.isFinite(+cfg.bw) && +cfg.bw >= 45) state.bedWidthMm = +cfg.bw;
   if (Number.isFinite(+cfg.bd) && +cfg.bd >= 45) state.bedDepthMm = +cfg.bd;
@@ -1266,7 +1280,10 @@ function renderBatchBar() {
 function saveCurrentDrawerToBatch() {
   const plan = state.plan;
   if (!plan || !plan.ok) return;
-  const defaultName = `Drawer ${state.savedDrawers.length + 1} (${Math.round(plan.drawerWidthMm)}x${Math.round(plan.drawerDepthMm)})`;
+  const ikea = getIkeaDrawerById(state.selectedIkeaId);
+  const defaultName = ikea
+    ? `${ikea.shortName} (${Math.round(plan.drawerWidthMm)}x${Math.round(plan.drawerDepthMm)})`
+    : `Drawer ${state.savedDrawers.length + 1} (${Math.round(plan.drawerWidthMm)}x${Math.round(plan.drawerDepthMm)})`;
   const entered = window.prompt('Name this drawer (used for batch plate labels):', defaultName);
   if (entered === null) return;
   const cleanName = (entered.trim() || defaultName).slice(0, 36);
@@ -1420,8 +1437,265 @@ function initTooltips() {
   window.addEventListener('resize', hideTip);
 }
 
+function formatDimPair(widthMm, depthMm, unit) {
+  return `${formatUnitVal(widthMm, unit)} × ${formatUnitVal(depthMm, unit)} ${unit}`;
+}
+
+function syncIkeaSelectedBanner() {
+  const banner = els.ikeaSelectedBanner;
+  if (!banner) return;
+  const preset = getIkeaDrawerById(state.selectedIkeaId);
+  if (!preset) {
+    banner.classList.add('hidden');
+    banner.innerHTML = '';
+    return;
+  }
+
+  banner.innerHTML = '';
+  const top = document.createElement('div');
+  top.className = 'ikea-selected-top';
+
+  const title = document.createElement('span');
+  title.textContent = `${preset.name} · ${formatDimPair(preset.widthMm, preset.depthMm, state.unit)}`;
+
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'ikea-banner-clear';
+  clearBtn.textContent = '×';
+  clearBtn.title = 'Detach preset label (keeps dimensions)';
+  clearBtn.setAttribute('aria-label', 'Clear selected IKEA preset');
+  clearBtn.addEventListener('click', () => {
+    state.selectedIkeaId = null;
+    syncIkeaSelectedBanner();
+    persistState();
+  });
+
+  top.appendChild(title);
+  top.appendChild(clearBtn);
+  banner.appendChild(top);
+
+  if (preset.note) {
+    const note = document.createElement('div');
+    note.className = 'ikea-selected-note';
+    note.textContent = preset.note;
+    banner.appendChild(note);
+  }
+
+  banner.classList.remove('hidden');
+}
+
+let refreshIkeaDropdown = () => {};
+
+function initIkeaPicker() {
+  if (!els.ikeaPicker || !els.ikeaSearchInput || !els.ikeaDropdown) return;
+
+  let isOpen = false;
+  let highlightedIdx = -1;
+  let currentResults = IKEA_DRAWERS;
+
+  if (els.ikeaPresetCount) {
+    els.ikeaPresetCount.textContent = `${IKEA_DRAWERS.length} sizes`;
+  }
+
+  const updateClearBtn = () => {
+    if (!els.ikeaClearBtn) return;
+    els.ikeaClearBtn.classList.toggle('hidden', !els.ikeaSearchInput.value);
+  };
+
+  const selectIkeaPreset = (item) => {
+    state.selectedIkeaId = item.id;
+    state.drawerWidthMm = item.widthMm;
+    state.drawerDepthMm = item.depthMm;
+    state.cornerRadiusMm = item.cornerRadiusMm || 0;
+    els.ikeaSearchInput.value = '';
+    updateClearBtn();
+    closeDropdown();
+    syncAllInputsFromState();
+    recomputeAndRender(true);
+  };
+
+  const renderDropdown = () => {
+    const query = els.ikeaSearchInput.value;
+    currentResults = searchIkeaDrawers(query, state.clearanceMm);
+    if (highlightedIdx >= currentResults.length) {
+      highlightedIdx = currentResults.length - 1;
+    }
+
+    if (els.ikeaPresetCount) {
+      els.ikeaPresetCount.textContent =
+        query.trim() ? `${currentResults.length} of ${IKEA_DRAWERS.length}` : `${IKEA_DRAWERS.length} sizes`;
+    }
+
+    els.ikeaDropdown.innerHTML = '';
+
+    if (currentResults.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'ikea-empty';
+      empty.textContent = `No IKEA drawers matching "${query.trim()}"`;
+      els.ikeaDropdown.appendChild(empty);
+      return;
+    }
+
+    currentResults.forEach((item, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ikea-option';
+      btn.setAttribute('role', 'option');
+      const isSelected = item.id === state.selectedIkeaId;
+      btn.setAttribute('aria-selected', String(isSelected));
+      if (isSelected) btn.classList.add('selected');
+      if (idx === highlightedIdx) btn.classList.add('highlighted');
+
+      const top = document.createElement('div');
+      top.className = 'ikea-option-top';
+
+      const name = document.createElement('span');
+      name.className = 'ikea-option-name';
+      name.textContent = item.name;
+
+      const dims = document.createElement('span');
+      dims.className = 'ikea-option-dims';
+      dims.textContent = formatDimPair(item.widthMm, item.depthMm, state.unit);
+
+      top.appendChild(name);
+      top.appendChild(dims);
+
+      const meta = document.createElement('div');
+      meta.className = 'ikea-option-meta';
+
+      const tag = document.createElement('span');
+      tag.className = 'ikea-series-tag';
+      tag.textContent = item.series;
+
+      const cat = document.createElement('span');
+      cat.textContent =
+        item.cornerRadiusMm > 0
+          ? `${item.category} · ${item.cornerRadiusMm} mm corners`
+          : item.category;
+
+      meta.appendChild(tag);
+      meta.appendChild(cat);
+
+      btn.appendChild(top);
+      btn.appendChild(meta);
+
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+      });
+      btn.addEventListener('click', () => selectIkeaPreset(item));
+      els.ikeaDropdown.appendChild(btn);
+    });
+  };
+
+  const openDropdown = () => {
+    isOpen = true;
+    highlightedIdx = -1;
+    renderDropdown();
+    els.ikeaDropdown.classList.remove('hidden');
+    els.ikeaSearchInput.setAttribute('aria-expanded', 'true');
+  };
+
+  const closeDropdown = () => {
+    isOpen = false;
+    highlightedIdx = -1;
+    els.ikeaDropdown.classList.add('hidden');
+    els.ikeaSearchInput.setAttribute('aria-expanded', 'false');
+  };
+
+  refreshIkeaDropdown = () => {
+    if (isOpen) renderDropdown();
+  };
+
+  els.ikeaSearchInput.addEventListener('focus', () => {
+    openDropdown();
+  });
+
+  els.ikeaSearchInput.addEventListener('click', () => {
+    if (!isOpen) openDropdown();
+  });
+
+  els.ikeaSearchInput.addEventListener('input', () => {
+    updateClearBtn();
+    highlightedIdx = 0;
+    if (!isOpen) {
+      isOpen = true;
+      els.ikeaDropdown.classList.remove('hidden');
+      els.ikeaSearchInput.setAttribute('aria-expanded', 'true');
+    }
+    renderDropdown();
+  });
+
+  els.ikeaSearchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!isOpen) {
+        openDropdown();
+      }
+      if (currentResults.length > 0) {
+        highlightedIdx = (highlightedIdx + 1) % currentResults.length;
+        renderDropdown();
+        const activeEl = els.ikeaDropdown.children[highlightedIdx];
+        if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!isOpen) {
+        openDropdown();
+      }
+      if (currentResults.length > 0) {
+        highlightedIdx = highlightedIdx <= 0 ? currentResults.length - 1 : highlightedIdx - 1;
+        renderDropdown();
+        const activeEl = els.ikeaDropdown.children[highlightedIdx];
+        if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+      }
+    } else if (e.key === 'Enter') {
+      if (isOpen && currentResults.length > 0) {
+        e.preventDefault();
+        const targetIdx = highlightedIdx >= 0 ? highlightedIdx : 0;
+        selectIkeaPreset(currentResults[targetIdx]);
+      }
+    } else if (e.key === 'Escape') {
+      if (isOpen) {
+        e.preventDefault();
+        closeDropdown();
+      }
+    }
+  });
+
+  if (els.ikeaToggleBtn) {
+    els.ikeaToggleBtn.addEventListener('click', () => {
+      if (isOpen) {
+        closeDropdown();
+      } else {
+        openDropdown();
+        els.ikeaSearchInput.focus();
+      }
+    });
+  }
+
+  if (els.ikeaClearBtn) {
+    els.ikeaClearBtn.addEventListener('click', () => {
+      els.ikeaSearchInput.value = '';
+      updateClearBtn();
+      highlightedIdx = -1;
+      openDropdown();
+      els.ikeaSearchInput.focus();
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (isOpen && !els.ikeaPicker.contains(e.target)) {
+      closeDropdown();
+    }
+  });
+
+  updateClearBtn();
+  syncIkeaSelectedBanner();
+}
+
 function bindEvents() {
   initTooltips();
+  initIkeaPicker();
 
   // Unit switcher
   document.querySelectorAll('[data-unit]').forEach((btn) => {
@@ -1436,6 +1710,9 @@ function bindEvents() {
       els.drawerWidth.value = formatUnitVal(state.drawerWidthMm, nextUnit);
       els.drawerDepth.value = formatUnitVal(state.drawerDepthMm, nextUnit);
       els.clearanceInput.value = formatUnitVal(state.clearanceMm, nextUnit);
+      syncIkeaSelectedBanner();
+      refreshIkeaDropdown();
+      persistState();
     });
   });
 
@@ -1471,7 +1748,7 @@ function bindEvents() {
     });
   });
 
-  const onDrawerChange = () => {
+  const onDrawerChange = (e) => {
     const f = UNIT_FACTORS[state.unit];
     const w = parseFloat(els.drawerWidth.value);
     const d = parseFloat(els.drawerDepth.value);
@@ -1479,6 +1756,10 @@ function bindEvents() {
     if (Number.isFinite(w) && w > 0) state.drawerWidthMm = w * f;
     if (Number.isFinite(d) && d > 0) state.drawerDepthMm = d * f;
     state.clearanceMm = Number.isFinite(c) && c >= 0 ? c * f : 0;
+    if (e && (e.target === els.drawerWidth || e.target === els.drawerDepth) && state.selectedIkeaId) {
+      state.selectedIkeaId = null;
+      syncIkeaSelectedBanner();
+    }
     recomputeAndRender(true);
   };
 
@@ -1489,6 +1770,10 @@ function bindEvents() {
   els.cornerRadiusInput.addEventListener('input', () => {
     const r = parseFloat(els.cornerRadiusInput.value);
     state.cornerRadiusMm = Number.isFinite(r) && r >= 0 ? Math.min(50, r) : 0;
+    if (state.selectedIkeaId) {
+      state.selectedIkeaId = null;
+      syncIkeaSelectedBanner();
+    }
     recomputeAndRender(false);
   });
 

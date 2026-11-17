@@ -5,6 +5,7 @@ A fast, zero-dependency static web app for generating printable Gridfinity basep
 ## Features
 
 - **Drawer sizing in `mm`, `cm`, or `in`** with configurable fit clearance
+- **Searchable IKEA drawer presets** (`ALEX`, `MAXIMERA`, `SEKTION`, `PAX / KOMPLEMENT`, `HELMER`, `MALM`, `NORDLI`, `HEMNES`, `KALLAX`, and more) with interior floor dimensions and curved corner defaults where applicable
 - **Bambu Lab printer presets** (`A1 mini`, `A1`, `P1P / P1S`, `X1C / X1E`, `H2D Single`, `H2D Dual`) plus **Custom** bed dimensions
 - **Smart border rim padding** to center the grid and fill leftover drawer space so tiles don't slide around
 - **Optimal balanced tiling** that minimizes print plates, groups identical tiles (including 90°/180°/270° rotations), and avoids tiny strips

@@ -882,6 +882,229 @@ body {
   flex-wrap: wrap;
 }
 
+/* IKEA Drawer Preset Search Picker */
+.ikea-picker {
+  margin-bottom: 12px;
+}
+
+.ikea-picker-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+.ikea-count-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.ikea-search-anchor {
+  position: relative;
+}
+
+.ikea-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 6px 0 9px;
+  transition: border-color 0.15s;
+}
+
+.ikea-search-wrap:focus-within {
+  border-color: var(--primary);
+}
+
+.ikea-search-icon {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.ikea-search-wrap input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 8px 4px;
+  outline: none;
+}
+
+.ikea-search-wrap input::placeholder {
+  color: #6b7280;
+}
+
+.ikea-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.ikea-icon-btn:hover {
+  background: var(--card-elev);
+  color: var(--text);
+}
+
+.ikea-dropdown {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  max-height: 270px;
+  overflow-y: auto;
+  background: #111622;
+  border: 1px solid #3b4252;
+  border-radius: 9px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.72);
+  padding: 4px;
+  z-index: 80;
+}
+
+.ikea-dropdown::-webkit-scrollbar {
+  width: 7px;
+}
+
+.ikea-dropdown::-webkit-scrollbar-thumb {
+  background: #333a4a;
+  border-radius: 999px;
+}
+
+.ikea-option {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 7px 9px;
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.ikea-option:hover,
+.ikea-option.highlighted {
+  background: var(--card-elev);
+  border-color: #3a4254;
+}
+
+.ikea-option.selected {
+  background: rgba(0, 174, 66, 0.12);
+  border-color: rgba(0, 174, 66, 0.45);
+}
+
+.ikea-option-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ikea-option-name {
+  font-size: 0.81rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ikea-option-dims {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #4ade80;
+  white-space: nowrap;
+}
+
+.ikea-option-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.71rem;
+  color: var(--muted);
+}
+
+.ikea-series-tag {
+  display: inline-block;
+  padding: 0px 5px;
+  border-radius: 4px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: rgba(56, 189, 248, 0.13);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  flex-shrink: 0;
+}
+
+.ikea-empty {
+  padding: 12px 10px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.ikea-selected-banner {
+  margin-top: 7px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(0, 174, 66, 0.08);
+  border: 1px solid rgba(0, 174, 66, 0.32);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ikea-selected-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.77rem;
+  font-weight: 600;
+  color: #86efac;
+}
+
+.ikea-selected-note {
+  font-size: 0.71rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.ikea-banner-clear {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 3px;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.ikea-banner-clear:hover {
+  color: var(--text);
+}
+
 .hidden {
   display: none !important;
 }
