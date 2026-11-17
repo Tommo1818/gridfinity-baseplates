@@ -230,6 +230,21 @@ export const IKEA_DRAWERS = [
     keywords: 'metal 6 drawer workshop craft legacy old',
   },
 
+  // TROTTEN
+  {
+    id: 'trotten-40x47',
+    series: 'TROTTEN',
+    name: 'TROTTEN 40 × 47 cm (2 / 3-drawer on castors)',
+    shortName: 'TROTTEN',
+    category: 'Desk & Office',
+    widthMm: 330,
+    depthMm: 400,
+    cornerRadiusMm: 0,
+    heightNote: '2-drawer & 3-drawer rolling units',
+    note: 'Official IKEA interior spec (33 × 40 cm; newer revisions list 39 cm depth). Verify with a tape measure before printing.',
+    keywords: 'trotten office desk pedestal castors casters metal 2 drawer 3 drawer 40x47 13x15 3/4',
+  },
+
   // MALM
   {
     id: 'malm-40x78',
