@@ -1392,7 +1392,7 @@ export function generateTileMesh(spec, options = {}) {
 /**
  * Encode a mesh (from generateTileMesh) as a standard Binary STL Uint8Array.
  */
-export function encodeBinaryStl(mesh, headerText = 'Simple Gridfinity Generator') {
+export function encodeBinaryStl(mesh, headerText = 'Gridfinity Baseplate Studio') {
   const { positions, normals, triCount } = mesh;
   const byteLength = 84 + triCount * 50;
   const buffer = new ArrayBuffer(byteLength);

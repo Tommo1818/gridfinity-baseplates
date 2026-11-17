@@ -1374,7 +1374,7 @@ function syncBinPaletteUI() {
 }
 
 const GOATCOUNTER_BASE = 'https://tommo1818.goatcounter.com';
-const GOATCOUNTER_VISIT_PATH = '/simple-gridfinity-generator';
+const GOATCOUNTER_VISIT_PATH = '/gridfinity-baseplates';
 const GOATCOUNTER_DOWNLOAD_PATH = '/download';
 
 let footerVisitCount = null;

@@ -1,6 +1,8 @@
-# Simple Gridfinity Generator
+# Gridfinity Baseplate Studio
 
-A fast, zero-dependency static web app for generating printable Gridfinity baseplate tiles sized to any drawer and 3D printer bed.
+Simple, all-in-one Gridfinity baseplate generator — auto-tiled for any 3D printer bed, IKEA drawer presets & Bambu `.3mf` export.
+
+Live at: https://tommo1818.github.io/gridfinity-baseplates/
 
 ## Features
 
