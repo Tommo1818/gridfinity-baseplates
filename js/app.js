@@ -4,6 +4,7 @@ import { GRIDFINITY_PITCH, planDrawerLayout } from './planner.js';
 import {
   generateTileMesh,
   encodeBinaryStl,
+  clipRectToRoundedWall,
   RIM_OUTER_WALL,
   RIM_INNER_COLLAR,
   RIM_RIB_THICKNESS,
@@ -680,6 +681,23 @@ function render2DMap(plan) {
 
     // Draw smaller grid-rim cutouts in 2D map when marginFill === 'grid' or 'half'
     if (plan.marginFill === 'grid' || plan.marginFill === 'half') {
+      const drawRimPoly = (pts) => {
+        if (!pts || pts.length < 3) return;
+        const pointsAttr = pts
+          .map(([gx, gy]) => `${(gridOriginX + gx).toFixed(2)},${(gridOriginBottomY - gy).toFixed(2)}`)
+          .join(' ');
+        g.appendChild(
+          svgEl('polygon', {
+            points: pointsAttr,
+            fill: pocketFill,
+            'fill-opacity': isLight ? 0.72 : 0.55,
+            stroke: color,
+            'stroke-opacity': 0.45,
+            'stroke-width': 0.6 * strokeScale,
+            'stroke-linejoin': 'round',
+          })
+        );
+      };
       const drawRimPocket = (px, py, pw, ph) => {
         if (pw <= 0 || ph <= 0) return;
         g.appendChild(
@@ -697,109 +715,211 @@ function render2DMap(plan) {
           })
         );
       };
-      const cutL = tile.spec.padL >= MIN_GRID_RIM_PAD;
-      const cutR = tile.spec.padR >= MIN_GRID_RIM_PAD;
-      const cutT = tile.spec.padT >= MIN_GRID_RIM_PAD;
-      const cutB = tile.spec.padB >= MIN_GRID_RIM_PAD;
+      const drawClippedPocket = (toGridXY, u0, u1, v0, v1, uMin, vMin, r) => {
+        const poly = clipRectToRoundedWall(u0, u1, v0, v1, uMin, vMin, r);
+        if (!poly) return;
+        drawRimPoly(poly.map(([u, v]) => toGridXY(u, v)));
+      };
+
+      const padL = tile.spec.padL || 0;
+      const padR = tile.spec.padR || 0;
+      const padT = tile.spec.padT || 0;
+      const padB = tile.spec.padB || 0;
+
+      const cutL = padL >= MIN_GRID_RIM_PAD;
+      const cutR = padR >= MIN_GRID_RIM_PAD;
+      const cutT = padT >= MIN_GRID_RIM_PAD;
+      const cutB = padB >= MIN_GRID_RIM_PAD;
 
       const rBLc = tile.spec.rBL || 0;
       const rBRc = tile.spec.rBR || 0;
       const rTRc = tile.spec.rTR || 0;
       const rTLc = tile.spec.rTL || 0;
 
-      const yCutL_B = rBLc > 0.05 ? Math.max(0, rBLc - tile.spec.padB) : 0;
-      const yCutL_T = gridD - (rTLc > 0.05 ? Math.max(0, rTLc - tile.spec.padT) : 0);
-      const yCutR_B = rBRc > 0.05 ? Math.max(0, rBRc - tile.spec.padB) : 0;
-      const yCutR_T = gridD - (rTRc > 0.05 ? Math.max(0, rTRc - tile.spec.padT) : 0);
-      const xCutB_L = rBLc > 0.05 ? Math.max(0, rBLc - tile.spec.padL) : 0;
-      const xCutB_R = gridW - (rBRc > 0.05 ? Math.max(0, rBRc - tile.spec.padR) : 0);
-      const xCutT_L = rTLc > 0.05 ? Math.max(0, rTLc - tile.spec.padL) : 0;
-      const xCutT_R = gridW - (rTRc > 0.05 ? Math.max(0, rTRc - tile.spec.padR) : 0);
+      const clampCornerR = (r, padU, padV, uMax, vMax, padOppU, rOppU, padOppV, rOppV) => {
+        if ((padU <= 1e-6 && padV <= 1e-6) || r <= 0.05) return r;
+        let eff = Math.min(r, padU + padV + Math.sqrt(2 * padU * padV));
+        if (padOppU <= 1e-6 && rOppU <= 0.05) eff = Math.min(eff, padU + uMax);
+        if (padOppV <= 1e-6 && rOppV <= 0.05) eff = Math.min(eff, padV + vMax);
+        return eff;
+      };
+      const rBL_eff = clampCornerR(rBLc, padL, padB, gridW, gridD, padR, rBRc, padT, rTLc);
+      const rBR_eff = clampCornerR(rBRc, padB, padR, gridD, gridW, padT, rTRc, padL, rBLc);
+      const rTR_eff = clampCornerR(rTRc, padR, padT, gridW, gridD, padL, rTLc, padB, rBRc);
+      const rTL_eff = clampCornerR(rTLc, padT, padL, gridD, gridW, padB, rBLc, padR, rTRc);
+
+      const yCutL_B = rBL_eff > 0.05 ? Math.max(0, rBL_eff - padB) : 0;
+      const yCutL_T = gridD - (rTL_eff > 0.05 ? Math.max(0, rTL_eff - padT) : 0);
+      const yCutR_B = rBR_eff > 0.05 ? Math.max(0, rBR_eff - padB) : 0;
+      const yCutR_T = gridD - (rTR_eff > 0.05 ? Math.max(0, rTR_eff - padT) : 0);
+      const xCutB_L = rBL_eff > 0.05 ? Math.max(0, rBL_eff - padL) : 0;
+      const xCutB_R = gridW - (rBR_eff > 0.05 ? Math.max(0, rBR_eff - padR) : 0);
+      const xCutT_L = rTL_eff > 0.05 ? Math.max(0, rTL_eff - padL) : 0;
+      const xCutT_R = gridW - (rTR_eff > 0.05 ? Math.max(0, rTR_eff - padR) : 0);
 
       if (cutL) {
-        const px = tx + RIM_OUTER_WALL;
-        const pw = tile.spec.padL - RIM_OUTER_WALL - RIM_INNER_COLLAR;
+        const u0 = -padL + RIM_OUTER_WALL;
+        const u1 = -RIM_INNER_COLLAR;
         for (let cy = 0; cy < rowDepths.length; cy++) {
           const yA = rowOff[cy];
           const yB = rowOff[cy + 1];
-          if (yA < yCutL_B - 1e-6 || yB > yCutL_T + 1e-6) continue;
-          const cd = rowDepths[cy];
           const ribT = cy === rowDepths.length - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
           const ribB = cy === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
-          const cellTopY = gridOriginBottomY - yB;
-          drawRimPocket(px, cellTopY + ribT, pw, cd - ribT - ribB);
+          const gy0 = yA + ribB;
+          const gy1 = yB - ribT;
+          if (yA < yCutL_B - 1e-6) {
+            drawClippedPocket((u, v) => [u, v], u0, u1, gy0, gy1, -padL, -padB, rBL_eff);
+          } else if (yB > yCutL_T + 1e-6) {
+            drawClippedPocket(
+              (u, v) => [v, gridD - u],
+              gridD - gy1,
+              gridD - gy0,
+              u0,
+              u1,
+              -padT,
+              -padL,
+              rTL_eff
+            );
+          } else {
+            drawRimPocket(tx + RIM_OUTER_WALL, gridOriginBottomY - gy1, u1 - u0, gy1 - gy0);
+          }
         }
       }
       if (cutR) {
-        const px = gridOriginX + gridW + RIM_INNER_COLLAR;
-        const pw = tile.spec.padR - RIM_OUTER_WALL - RIM_INNER_COLLAR;
+        const v0R = -padR + RIM_OUTER_WALL;
+        const v1R = -RIM_INNER_COLLAR;
         for (let cy = 0; cy < rowDepths.length; cy++) {
           const yA = rowOff[cy];
           const yB = rowOff[cy + 1];
-          if (yA < yCutR_B - 1e-6 || yB > yCutR_T + 1e-6) continue;
-          const cd = rowDepths[cy];
           const ribT = cy === rowDepths.length - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
           const ribB = cy === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
-          const cellTopY = gridOriginBottomY - yB;
-          drawRimPocket(px, cellTopY + ribT, pw, cd - ribT - ribB);
+          const gy0 = yA + ribB;
+          const gy1 = yB - ribT;
+          if (yA < yCutR_B - 1e-6) {
+            drawClippedPocket((u, v) => [gridW - v, u], gy0, gy1, v0R, v1R, -padB, -padR, rBR_eff);
+          } else if (yB > yCutR_T + 1e-6) {
+            drawClippedPocket(
+              (u, v) => [gridW - u, gridD - v],
+              v0R,
+              v1R,
+              gridD - gy1,
+              gridD - gy0,
+              -padR,
+              -padT,
+              rTR_eff
+            );
+          } else {
+            drawRimPocket(
+              gridOriginX + gridW + RIM_INNER_COLLAR,
+              gridOriginBottomY - gy1,
+              v1R - v0R,
+              gy1 - gy0
+            );
+          }
         }
       }
       if (cutT) {
-        const py = ty + RIM_OUTER_WALL;
-        const ph = tile.spec.padT - RIM_OUTER_WALL - RIM_INNER_COLLAR;
+        const u0T = -padT + RIM_OUTER_WALL;
+        const u1T = -RIM_INNER_COLLAR;
         for (let cx = 0; cx < colWidths.length; cx++) {
           const xA = colOff[cx];
           const xB = colOff[cx + 1];
-          if (xA < xCutT_L - 1e-6 || xB > xCutT_R + 1e-6) continue;
-          const cw = colWidths[cx];
           const ribL = cx === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
           const ribR = cx === colWidths.length - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
-          drawRimPocket(gridOriginX + xA + ribL, py, cw - ribL - ribR, ph);
+          const gx0 = xA + ribL;
+          const gx1 = xB - ribR;
+          if (xA < xCutT_L - 1e-6) {
+            drawClippedPocket((u, v) => [v, gridD - u], u0T, u1T, gx0, gx1, -padT, -padL, rTL_eff);
+          } else if (xB > xCutT_R + 1e-6) {
+            drawClippedPocket(
+              (u, v) => [gridW - u, gridD - v],
+              gridW - gx1,
+              gridW - gx0,
+              u0T,
+              u1T,
+              -padR,
+              -padT,
+              rTR_eff
+            );
+          } else {
+            drawRimPocket(gridOriginX + gx0, ty + RIM_OUTER_WALL, gx1 - gx0, u1T - u0T);
+          }
         }
       }
       if (cutB) {
-        const py = gridOriginBottomY + RIM_INNER_COLLAR;
-        const ph = tile.spec.padB - RIM_OUTER_WALL - RIM_INNER_COLLAR;
+        const v0B = -padB + RIM_OUTER_WALL;
+        const v1B = -RIM_INNER_COLLAR;
         for (let cx = 0; cx < colWidths.length; cx++) {
           const xA = colOff[cx];
           const xB = colOff[cx + 1];
-          if (xA < xCutB_L - 1e-6 || xB > xCutB_R + 1e-6) continue;
-          const cw = colWidths[cx];
           const ribL = cx === 0 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
           const ribR = cx === colWidths.length - 1 ? RIM_RIB_THICKNESS : RIM_RIB_THICKNESS / 2;
-          drawRimPocket(gridOriginX + xA + ribL, py, cw - ribL - ribR, ph);
+          const gx0 = xA + ribL;
+          const gx1 = xB - ribR;
+          if (xA < xCutB_L - 1e-6) {
+            drawClippedPocket((u, v) => [u, v], gx0, gx1, v0B, v1B, -padL, -padB, rBL_eff);
+          } else if (xB > xCutB_R + 1e-6) {
+            drawClippedPocket(
+              (u, v) => [gridW - v, u],
+              v0B,
+              v1B,
+              gridW - gx1,
+              gridW - gx0,
+              -padB,
+              -padR,
+              rBR_eff
+            );
+          } else {
+            drawRimPocket(gridOriginX + gx0, gridOriginBottomY + RIM_INNER_COLLAR, gx1 - gx0, v1B - v0B);
+          }
         }
       }
-      if (cutL && cutT && rTLc <= 0.05) {
-        drawRimPocket(
-          tx + RIM_OUTER_WALL,
-          ty + RIM_OUTER_WALL,
-          tile.spec.padL - RIM_OUTER_WALL - RIM_INNER_COLLAR,
-          tile.spec.padT - RIM_OUTER_WALL - RIM_INNER_COLLAR
+      if (cutL && cutT) {
+        drawClippedPocket(
+          (u, v) => [v, gridD - u],
+          -padT + RIM_OUTER_WALL,
+          -RIM_INNER_COLLAR,
+          -padL + RIM_OUTER_WALL,
+          -RIM_INNER_COLLAR,
+          -padT,
+          -padL,
+          rTL_eff
         );
       }
-      if (cutR && cutT && rTRc <= 0.05) {
-        drawRimPocket(
-          gridOriginX + gridW + RIM_INNER_COLLAR,
-          ty + RIM_OUTER_WALL,
-          tile.spec.padR - RIM_OUTER_WALL - RIM_INNER_COLLAR,
-          tile.spec.padT - RIM_OUTER_WALL - RIM_INNER_COLLAR
+      if (cutR && cutT) {
+        drawClippedPocket(
+          (u, v) => [gridW - u, gridD - v],
+          -padR + RIM_OUTER_WALL,
+          -RIM_INNER_COLLAR,
+          -padT + RIM_OUTER_WALL,
+          -RIM_INNER_COLLAR,
+          -padR,
+          -padT,
+          rTR_eff
         );
       }
-      if (cutL && cutB && rBLc <= 0.05) {
-        drawRimPocket(
-          tx + RIM_OUTER_WALL,
-          gridOriginBottomY + RIM_INNER_COLLAR,
-          tile.spec.padL - RIM_OUTER_WALL - RIM_INNER_COLLAR,
-          tile.spec.padB - RIM_OUTER_WALL - RIM_INNER_COLLAR
+      if (cutL && cutB) {
+        drawClippedPocket(
+          (u, v) => [u, v],
+          -padL + RIM_OUTER_WALL,
+          -RIM_INNER_COLLAR,
+          -padB + RIM_OUTER_WALL,
+          -RIM_INNER_COLLAR,
+          -padL,
+          -padB,
+          rBL_eff
         );
       }
-      if (cutR && cutB && rBRc <= 0.05) {
-        drawRimPocket(
-          gridOriginX + gridW + RIM_INNER_COLLAR,
-          gridOriginBottomY + RIM_INNER_COLLAR,
-          tile.spec.padR - RIM_OUTER_WALL - RIM_INNER_COLLAR,
-          tile.spec.padB - RIM_OUTER_WALL - RIM_INNER_COLLAR
+      if (cutR && cutB) {
+        drawClippedPocket(
+          (u, v) => [gridW - v, u],
+          -padB + RIM_OUTER_WALL,
+          -RIM_INNER_COLLAR,
+          -padR + RIM_OUTER_WALL,
+          -RIM_INNER_COLLAR,
+          -padB,
+          -padR,
+          rBR_eff
         );
       }
     }
